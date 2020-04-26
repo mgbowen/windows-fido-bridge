@@ -19,6 +19,7 @@ target_link_libraries(
     ${PROJECT_NAME}
     PUBLIC
         Boost::boost
+        fmt::fmt
         nlohmann_json::nlohmann_json
 )
 

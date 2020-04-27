@@ -40,13 +40,3 @@ target_include_directories(${test_target}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
-#
-# Scratch
-#
-
-add_executable(${PROJECT_NAME}_scratch
-    src/scratch.cpp
-)
-
-target_link_libraries(${PROJECT_NAME}_scratch ${PROJECT_NAME})

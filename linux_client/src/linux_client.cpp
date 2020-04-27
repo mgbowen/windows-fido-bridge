@@ -110,7 +110,7 @@ fido_signature parse_fido_signature(const std::string& buffer) {
     // INTEGERs, see
     // https://www.w3.org/TR/webauthn/#signature-attestation-types.
     constexpr auto throw_invalid_signature = [] {
-        throw std::runtime_error("Invalid or unrecognized signature");
+        throw std::runtime_error("Invalid or unrecognized signature received from authenticator");
     };
 
     // See explanation below about the expected size of the signature's INTEGERs
@@ -148,6 +148,10 @@ fido_signature parse_fido_signature(const std::string& buffer) {
 
         if (integer_length == 33) {
             // Skip padding
+            if (*pos != 0x00) {
+                throw_invalid_signature();
+            }
+
             pos++;
         }
 

@@ -2,6 +2,7 @@ project(windows_server)
 
 add_executable(
     ${PROJECT_NAME}
+
     windows_server.cpp
 )
 

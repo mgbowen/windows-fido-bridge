@@ -1,7 +1,5 @@
 #include "windows_fido_bridge/communication.hpp"
 
-#include <nlohmann/json.hpp>
-
 #include <unistd.h>
 
 #include <cstdint>
@@ -17,23 +15,30 @@ void write_all_into(int fd, const uint8_t* buffer, size_t num_bytes);
 
 namespace wfb {
 
-void send_message(int fd, const std::string& message) {
+void send_message(int fd, std::string_view message) {
+    send_message(fd, message.data(), message.size());
+}
+
+void send_message(int fd, const byte_array& message) {
+    send_message(fd, message.data(), message.size());
+}
+
+void send_message(int fd, const char* message_buffer, size_t message_length) {
+    send_message(fd, reinterpret_cast<const uint8_t*>(message_buffer), message_length);
+}
+
+void send_message(int fd, const uint8_t* message_buffer, size_t message_length) {
     // Write the message header
     std::stringstream header_ss;
-    header_ss << message.size() << "|";
+    header_ss << message_length << "|";
     std::string header = header_ss.str();
-
     write_all_into(fd, reinterpret_cast<const uint8_t*>(header.data()), header.size());
 
     // Write the message data
-    write_all_into(fd, reinterpret_cast<const uint8_t*>(message.data()), message.size());
+    write_all_into(fd, message_buffer, message_length);
 }
 
-void send_message(int fd, const nlohmann::json& message) {
-    send_message(fd, message.dump());
-}
-
-std::string receive_message(int fd) {
+byte_array receive_message(int fd) {
     // Read the message header
     size_t message_size = 0;
     while (true) {
@@ -55,9 +60,8 @@ std::string receive_message(int fd) {
     }
 
     // Read the message data
-    std::string message(message_size, 0);
-    read_all_from(fd, reinterpret_cast<uint8_t*>(message.data()), message.size());
-
+    byte_array message(message_size, 0);
+    read_all_from(fd, message.data(), message.size());
     return message;
 }
 

@@ -6,6 +6,7 @@
 
 #include <windows_fido_bridge/base64.hpp>
 #include <windows_fido_bridge/communication.hpp>
+#include <windows_fido_bridge/types.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -157,7 +158,7 @@ PWEBAUTHN_ASSERTION create_signature(const json& parameters) {
 extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow) {
     std::cerr << WebAuthNGetApiVersionNumber() << "\n";
 
-    std::string raw_parameters = receive_message(fileno(stdin));
+    wfb::byte_array raw_parameters = receive_message(fileno(stdin));
     json parameters = json::parse(raw_parameters);
 
     if (parameters["type"] == "create") {
@@ -178,7 +179,7 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
             )},
         };
 
-        send_message(fileno(stdout), output);
+        send_message(fileno(stdout), output.dump());
     } else if (parameters["type"] == "sign") {
         std::cerr << "Creating signature\n";
 
@@ -191,7 +192,7 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
             {"authenticator_data", base64_encode(assertion->pbAuthenticatorData, assertion->cbAuthenticatorData)},
         };
 
-        send_message(fileno(stdout), output);
+        send_message(fileno(stdout), output.dump());
     } else {
         std::cerr << "ERROR: unrecognized type!\n";
         abort();

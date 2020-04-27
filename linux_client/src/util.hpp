@@ -1,5 +1,7 @@
 #pragma once
 
+#include <windows_fido_bridge/types.hpp>
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,15 +23,5 @@ template <typename T, typename U>
 constexpr bool is_explicitly_convertible =
     std::is_constructible_v<remove_cvref_t<T>, remove_cvref_t<U>> &&
         ! std::is_convertible_v<remove_cvref_t<T>, remove_cvref_t<U>>;
-
-void dump_binary(const uint8_t* buffer, size_t length);
-
-inline void dump_binary(const std::vector<uint8_t>& binary) {
-    dump_binary(reinterpret_cast<const uint8_t*>(binary.data()), binary.size());
-}
-
-inline void dump_binary(const std::string& binary) {
-    dump_binary(reinterpret_cast<const uint8_t*>(binary.data()), binary.size());
-}
 
 }  // namespace wfb

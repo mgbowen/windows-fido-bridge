@@ -5,9 +5,10 @@ project(linux_client)
 #
 
 add_library(${PROJECT_NAME} SHARED
+    src/bridge.cpp
     src/cbor.cpp
     src/linux_client.cpp
-    src/util.cpp
+    src/posix_pipe.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

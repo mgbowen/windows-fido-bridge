@@ -2,7 +2,10 @@ project(common)
 
 add_library(
     ${PROJECT_NAME} STATIC
+
     src/communication.cpp
+    src/exceptions.cpp
+    src/util.cpp
 )
 
 target_include_directories(
@@ -18,7 +21,6 @@ target_link_libraries(
     ${PROJECT_NAME}
     PUBLIC
         fmt::fmt
-        nlohmann_json::nlohmann_json
 )
 
 set_property(

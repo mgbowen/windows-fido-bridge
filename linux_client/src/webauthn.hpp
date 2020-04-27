@@ -4,6 +4,8 @@
 #include "cbor.hpp"
 #include "util.hpp"
 
+#include <windows_fido_bridge/util.hpp>
+
 #include <nlohmann/json.hpp>
 
 #include <array>

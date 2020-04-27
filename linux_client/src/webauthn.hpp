@@ -6,13 +6,9 @@
 
 #include <windows_fido_bridge/util.hpp>
 
-#include <nlohmann/json.hpp>
-
 #include <array>
 #include <iostream>
 #include <vector>
-
-using json = nlohmann::json;
 
 namespace wfb {
 

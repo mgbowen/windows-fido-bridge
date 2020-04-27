@@ -278,8 +278,6 @@ constexpr bool is_convertible_from_variant_alternative_type() {
     );
 }
 
-static_assert(std::is_convertible_v<cbor_text_string, nlohmann::json>, "ASDASD");
-
 template <typename TDestination, typename TVariant>
 struct cbor_value_converter {
     template <typename TSource, enable_if_convertible_without_cvref<TSource, TDestination> = 0>

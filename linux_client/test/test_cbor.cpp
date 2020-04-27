@@ -208,7 +208,7 @@ TEST(CBOR, Maps) {
     {
         std::vector<uint8_t> bytes = {0b101'00100, 0, 1, 2, 3, 4, 5, 6, 7};
         std::map<uint8_t, uint8_t> expected_items = {{0, 1}, {2, 3}, {4, 5}, {6, 7}};
-        std::map<uint8_t, uint8_t> actual_items = static_cast<std::map<uint8_t, uint8_t>>(load_cbor_from<wfb::cbor_map>(bytes));
+        auto actual_items = static_cast<std::map<uint8_t, uint8_t>>(load_cbor_from<wfb::cbor_map>(bytes));
         ASSERT_EQ(expected_items, actual_items);
     }
 

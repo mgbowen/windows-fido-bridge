@@ -243,9 +243,14 @@ struct cbor_map {
     bool operator<(const cbor_map& rhs) const;
 
     template <typename TKey, typename TValue>
-    explicit operator std::map<TKey, TValue>() const {
-        return std::map<TKey, TValue>{_map.begin(), _map.end()};
-    }
+    explicit inline operator std::map<TKey, TValue>() const;
+
+    const std::map<cbor_value, cbor_value>& map() const { return _map; }
+
+    template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+    const cbor_value& operator[](T key) const { return _map.at(cbor_value{cbor_integer{key}}); }
+    const cbor_value& operator[](std::string key) const;
+    //const cbor_value& operator[](const cbor_value& key) { return _map.at(key); }
 
     void dump() const {
         std::stringstream ss;
@@ -340,6 +345,16 @@ public:
 private:
     storage_type _storage;
 };
+
+template <typename TKey, typename TValue>
+inline cbor_map::operator std::map<TKey, TValue>() const {
+    std::map<TKey, TValue> result;
+    for (auto&& pair : _map) {
+        result.emplace(std::make_pair(pair.first, pair.second));
+    }
+
+    return result;
+}
 
 //
 // Type casting assertions

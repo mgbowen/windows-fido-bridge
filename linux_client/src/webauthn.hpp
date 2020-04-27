@@ -2,6 +2,7 @@
 
 #include "binary_io.hpp"
 #include "cbor.hpp"
+#include "util.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -25,8 +26,24 @@ struct attested_credential_data {
         id.resize(credential_id_length);
         reader.read_into(id);
 
-        cbor_value public_key_obj = load_cbor(reader);
-        public_key_obj.dump();
+        auto public_key_map = load_cbor(reader).get<cbor_map>();
+        public_key_map.dump();
+
+        auto x_coordinate_bytes = public_key_map[-2].get<std::vector<uint8_t>>();
+        auto y_coordinate_bytes = public_key_map[-3].get<std::vector<uint8_t>>();
+
+        std::cerr << "X coordinate:\n";
+        dump_binary(x_coordinate_bytes);
+        std::cerr << "Y coordinate:\n";
+        dump_binary(y_coordinate_bytes);
+
+        public_key.resize(1 + x_coordinate_bytes.size() + y_coordinate_bytes.size());
+        public_key[0] = 0x04;
+        std::memcpy(public_key.data() + 1, x_coordinate_bytes.data(), x_coordinate_bytes.size());
+        std::memcpy(public_key.data() + 1 + x_coordinate_bytes.size(), y_coordinate_bytes.data(), y_coordinate_bytes.size());
+
+        std::cerr << "Public key:\n";
+        dump_binary(public_key);
     }
 
     void dump() const {
@@ -46,16 +63,18 @@ struct attested_credential_data {
         }
 
         std::cerr << "\n";
-
         std::cerr << "Credential ID ({} bytes): "_format(id.size());
-
         for (uint8_t byte : id) {
             std::cerr << "{:02x}"_format(byte);
         }
 
         std::cerr << "\n";
+        std::cerr << "Public key ({} bytes): "_format(public_key.size());
+        for (uint8_t byte : public_key) {
+            std::cerr << "{:02x}"_format(byte);
+        }
 
-
+        std::cerr << "\n";
     }
 };
 

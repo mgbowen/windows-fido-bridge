@@ -2,7 +2,6 @@ project(common)
 
 add_library(
     ${PROJECT_NAME} STATIC
-    src/base64.cpp
     src/communication.cpp
 )
 
@@ -18,7 +17,6 @@ target_include_directories(
 target_link_libraries(
     ${PROJECT_NAME}
     PUBLIC
-        Boost::boost
         fmt::fmt
         nlohmann_json::nlohmann_json
 )

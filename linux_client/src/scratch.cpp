@@ -29,7 +29,7 @@ int main() {
     }
 
     json contents = json::parse(raw_contents);
-    std::string raw_attestation_object = wfb::base64_decode(contents["attestation_object"].get<std::string>());
+    std::string raw_attestation_object = base64_decode(contents["attestation_object"].get<std::string>());
 
     std::cerr << "Raw attestation object bytes:\n";
     dump_binary(raw_attestation_object);
@@ -37,13 +37,6 @@ int main() {
 
     json attestation_object = json::from_cbor(raw_attestation_object);
     const std::vector<uint8_t>& auth_data_bytes = *attestation_object["authData"].get_ptr<const json::binary_t*>();
-
-    binary_reader reader2{reinterpret_cast<const uint8_t*>(raw_attestation_object.data()), raw_attestation_object.size()};
-    load_cbor(reader2).dump();
-
-    std::cerr << "Raw auth data bytes:\n";
-    dump_binary(auth_data_bytes);
-    std::cerr << "\n";
 
     binary_reader reader{reinterpret_cast<const uint8_t*>(auth_data_bytes.data()), auth_data_bytes.size()};
     authenticator_data auth_data{reader};

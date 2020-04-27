@@ -13,7 +13,6 @@ add_library(${PROJECT_NAME} SHARED
 target_link_libraries(${PROJECT_NAME}
     common
 
-    Boost::boost
     nlohmann_json::nlohmann_json
     fmt::fmt
 )

@@ -73,14 +73,12 @@ PCWEBAUTHN_CREDENTIAL_ATTESTATION create_credential(const json& parameters) {
     );
 
     WEBAUTHN_COSE_CREDENTIAL_PARAMETERS cose_credential_parameters{
-      cose_credential_parameter_values.size(),
-      cose_credential_parameter_values.data()};
+        cose_credential_parameter_values.size(),
+        cose_credential_parameter_values.data()
+    };
 
     auto challenge_str_b64 = parameters["challenge"].get<std::string>();
-    std::string challenge_str = base64_decode(
-        reinterpret_cast<const uint8_t*>(challenge_str_b64.data()),
-        challenge_str_b64.size()
-    );
+    std::string challenge_str = base64_decode(challenge_str_b64);
 
     WEBAUTHN_CLIENT_DATA client_data = {
         .dwVersion = WEBAUTHN_CLIENT_DATA_CURRENT_VERSION,
@@ -106,26 +104,100 @@ PCWEBAUTHN_CREDENTIAL_ATTESTATION create_credential(const json& parameters) {
     return credential_attestation;
 }
 
+PWEBAUTHN_ASSERTION create_signature(const json& parameters) {
+    std::wstring relying_party_id = string_to_wide_string(parameters["application"].get<std::string>());
+
+    auto message_str_b64 = parameters["message"].get<std::string>();
+    std::string message_str = base64_decode(message_str_b64);
+
+    auto client_data = WEBAUTHN_CLIENT_DATA{
+        .dwVersion = WEBAUTHN_CLIENT_DATA_CURRENT_VERSION,
+        .cbClientDataJSON = message_str.size(),
+        .pbClientDataJSON = reinterpret_cast<PBYTE>(message_str.data()),
+        .pwszHashAlgId = WEBAUTHN_HASH_ALGORITHM_SHA_256,
+    };
+
+    std::cerr << "message length: " << message_str.size() << "\n";
+
+    auto credential_id_b64 = parameters["key_handle"].get<std::string>();
+    std::string credential_id_str = base64_decode(credential_id_b64);
+
+    std::array<WEBAUTHN_CREDENTIAL, 1> credentials_arr = {
+        WEBAUTHN_CREDENTIAL{
+            .dwVersion = WEBAUTHN_CREDENTIAL_CURRENT_VERSION,
+            .cbId = credential_id_str.size(),
+            .pbId = reinterpret_cast<PBYTE>(credential_id_str.data()),
+            .pwszCredentialType = WEBAUTHN_CREDENTIAL_TYPE_PUBLIC_KEY,
+        },
+    };
+
+    WEBAUTHN_AUTHENTICATOR_GET_ASSERTION_OPTIONS options = {
+        .dwVersion = WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS_CURRENT_VERSION,
+        .CredentialList = WEBAUTHN_CREDENTIALS{
+            .cCredentials = 1,
+            .pCredentials = credentials_arr.data(),
+        },
+    };
+
+    WEBAUTHN_ASSERTION* assertion = nullptr;
+
+    auto result = WebAuthNAuthenticatorGetAssertion(
+        GetForegroundWindow(),
+        relying_party_id.c_str(),
+        &client_data,
+        &options,
+        &assertion
+    );
+
+    std::wcerr << WebAuthNGetErrorName(result) << "\n";
+
+    return assertion;
+}
+
 extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow) {
     std::cerr << WebAuthNGetApiVersionNumber() << "\n";
 
     std::string raw_parameters = receive_message(fileno(stdin));
     json parameters = json::parse(raw_parameters);
 
-    std::cerr << "Creating credential\n";
+    if (parameters["type"] == "create") {
+        std::cerr << "Creating credential\n";
 
-    PCWEBAUTHN_CREDENTIAL_ATTESTATION raw_output = create_credential(parameters);
+        PCWEBAUTHN_CREDENTIAL_ATTESTATION raw_output = create_credential(parameters);
 
-    std::cerr << "Constructing output\n";
+        std::cerr << "Constructing output\n";
 
-    json output = {
-        {"attestation_object", base64_encode(
-            raw_output->pbAttestationObject,
-            raw_output->cbAttestationObject
-        )}
-    };
+        json output = {
+            {"attestation_object", base64_encode(
+                raw_output->pbAttestationObject,
+                raw_output->cbAttestationObject
+            )},
+            {"credential_id", base64_encode(
+                raw_output->pbCredentialId,
+                raw_output->cbCredentialId
+            )},
+        };
 
-    send_message(fileno(stdout), output);
+        send_message(fileno(stdout), output);
+    } else if (parameters["type"] == "sign") {
+        std::cerr << "Creating signature\n";
+
+        PWEBAUTHN_ASSERTION assertion = create_signature(parameters);
+
+        std::cerr << "Constructing output\n";
+
+        json output = {
+            {"signature", base64_encode(assertion->pbSignature, assertion->cbSignature)},
+            {"authenticator_data", base64_encode(assertion->pbAuthenticatorData, assertion->cbAuthenticatorData)},
+        };
+
+        send_message(fileno(stdout), output);
+    } else {
+        std::cerr << "ERROR: unrecognized type!\n";
+        abort();
+    }
+
+    std::cerr << "Done!\n";
 
     return 0;
 }

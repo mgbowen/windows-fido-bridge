@@ -7,13 +7,9 @@ add_executable(
 
 target_link_libraries(
     ${PROJECT_NAME}
-    PRIVATE
-        common
+    common
 
-        Boost::boost
-        nlohmann_json::nlohmann_json
-
-        -static-libgcc
-        -static-libstdc++
-        "/mnt/c/Program Files (x86)/Windows Kits/10/Lib/10.0.18362.0/um/x64/webauthn.lib"
+    -static-libgcc
+    -static-libstdc++
+    "/mnt/c/Program Files (x86)/Windows Kits/10/Lib/10.0.18362.0/um/x64/webauthn.lib"
 )

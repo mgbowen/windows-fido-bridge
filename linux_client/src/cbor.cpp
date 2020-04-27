@@ -91,6 +91,8 @@ bool cbor_map::operator<(const cbor_map& rhs) const {
     return _map < rhs._map;
 }
 
+const cbor_value& cbor_map::operator[](std::string key) const { return _map.at(cbor_value{cbor_text_string{std::move(key)}}); }
+
 void cbor_map::dump(std::stringstream& ss) const {
     ss << '{';
 

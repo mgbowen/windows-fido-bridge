@@ -11,19 +11,19 @@
 
 namespace wfb {
 
-byte_array invoke_windows_bridge(std::string_view args) {
+byte_vector invoke_windows_bridge(std::string_view args) {
     return invoke_windows_bridge(args.data(), args.size());
 }
 
-byte_array invoke_windows_bridge(const byte_array& args) {
+byte_vector invoke_windows_bridge(const byte_vector& args) {
     return invoke_windows_bridge(args.data(), args.size());
 }
 
-byte_array invoke_windows_bridge(const char* buffer, size_t length) {
+byte_vector invoke_windows_bridge(const char* buffer, size_t length) {
     return invoke_windows_bridge(reinterpret_cast<const uint8_t*>(buffer), length);
 }
 
-byte_array invoke_windows_bridge(const uint8_t* buffer, size_t length) {
+byte_vector invoke_windows_bridge(const uint8_t* buffer, size_t length) {
     posix_pipe out_to_child_pipe;
     posix_pipe in_from_child_pipe;
 
@@ -79,7 +79,7 @@ byte_array invoke_windows_bridge(const uint8_t* buffer, size_t length) {
     wfb::send_message(out_to_child_pipe.write_fd(), buffer, length);
 
     // Receive the output back
-    byte_array output = receive_message(in_from_child_pipe.read_fd());
+    byte_vector output = receive_message(in_from_child_pipe.read_fd());
 
     int status = 0;
     pid_t wait_result = waitpid(pid, &status, 0);

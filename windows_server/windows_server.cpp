@@ -158,7 +158,7 @@ PWEBAUTHN_ASSERTION create_signature(const json& parameters) {
 extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow) {
     std::cerr << WebAuthNGetApiVersionNumber() << "\n";
 
-    wfb::byte_array raw_parameters = receive_message(fileno(stdin));
+    wfb::byte_vector raw_parameters = receive_message(fileno(stdin));
     json parameters = json::parse(raw_parameters);
 
     if (parameters["type"] == "create") {

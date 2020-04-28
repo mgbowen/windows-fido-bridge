@@ -19,7 +19,7 @@ void send_message(int fd, std::string_view message) {
     send_message(fd, message.data(), message.size());
 }
 
-void send_message(int fd, const byte_array& message) {
+void send_message(int fd, const byte_vector& message) {
     send_message(fd, message.data(), message.size());
 }
 
@@ -38,7 +38,7 @@ void send_message(int fd, const uint8_t* message_buffer, size_t message_length) 
     write_all_into(fd, message_buffer, message_length);
 }
 
-byte_array receive_message(int fd) {
+byte_vector receive_message(int fd) {
     // Read the message header
     size_t message_size = 0;
     while (true) {
@@ -60,7 +60,7 @@ byte_array receive_message(int fd) {
     }
 
     // Read the message data
-    byte_array message(message_size, 0);
+    byte_vector message(message_size, 0);
     read_all_from(fd, message.data(), message.size());
     return message;
 }

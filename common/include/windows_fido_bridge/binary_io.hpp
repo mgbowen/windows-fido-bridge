@@ -1,8 +1,7 @@
 #pragma once
 
-#include "util.hpp"
-
 #include <windows_fido_bridge/format.hpp>
+#include <windows_fido_bridge/util.hpp>
 
 #include <array>
 #include <cstdint>
@@ -86,24 +85,28 @@ T be_bytes_to_integer(const std::array<uint8_t, ArrayN>& buffer) {
 
 class binary_reader {
 public:
-    binary_reader(const uint8_t* buffer, size_t length)
-        : _buffer(buffer), _length(length) {}
+    binary_reader(byte_vector buffer) {
+        auto owned_buffer = std::make_unique<const byte_vector>(std::move(buffer));
+        _buffer = owned_buffer->data();
+        _length = owned_buffer->size();
+        _owned_buffer = std::move(owned_buffer);
+    }
 
     template <size_t N>
-    binary_reader(std::array<uint8_t, N> buffer) {
-        auto owned_buffer = std::make_shared<std::array<uint8_t, N>>(buffer);
-        _buffer = owned_buffer->data();
-        _length = owned_buffer->size();
-        _owned_buffer = std::move(owned_buffer);
-    }
+    binary_reader(const byte_array<N>& buffer)
+        : binary_reader(byte_vector(buffer.cbegin(), buffer.cend())) {}
 
-    template <typename T, enable_if_convertible_without_cvref<T, std::vector<uint8_t>> = 0>
-    binary_reader(T&& buffer) {
-        auto owned_buffer = std::make_shared<std::vector<uint8_t>>(std::forward<T>(buffer));
-        _buffer = owned_buffer->data();
-        _length = owned_buffer->size();
-        _owned_buffer = std::move(owned_buffer);
-    }
+    binary_reader(const std::string& str)
+        : binary_reader(byte_vector(str.cbegin(), str.cend())) {}
+
+    binary_reader(std::string_view str)
+        : binary_reader(byte_vector(str.cbegin(), str.cend())) {}
+
+    binary_reader(const uint8_t* buffer, size_t length)
+        : binary_reader(byte_vector(buffer, buffer + length)) {}
+
+    NON_COPYABLE(binary_reader);
+    MOVABLE(binary_reader);
 
     size_t bytes_remaining() const { return _length - _pos; }
 
@@ -153,7 +156,7 @@ public:
     uint64_t read_be_uint64_t() { return _read_be_primitive<uint64_t>(); }
 
 private:
-    std::shared_ptr<void> _owned_buffer;
+    std::unique_ptr<const byte_vector> _owned_buffer;
     const uint8_t* _buffer;
     size_t _length;
 

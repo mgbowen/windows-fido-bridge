@@ -1,21 +1,11 @@
+#include <windows_fido_bridge/binary_io.hpp>
+#include <windows_fido_bridge/cbor.hpp>
+
 #include <gtest/gtest.h>
-
-#include "binary_io.hpp"
-#include "cbor.hpp"
-
-#include <nlohmann/json.hpp>
 
 #include <initializer_list>
 #include <limits>
 #include <vector>
-
-using byte_array_t = std::vector<uint8_t>;
-
-template <typename TDestination, typename TBuffer>
-TDestination load_cbor_from(TBuffer&& buffer) {
-    wfb::binary_reader reader{std::forward<TBuffer>(buffer)};
-    return static_cast<TDestination>(wfb::load_cbor(reader));
-}
 
 template <typename T>
 void test_integer(uint8_t type_byte, T value) {
@@ -24,7 +14,7 @@ void test_integer(uint8_t type_byte, T value) {
 
     wfb::integer_to_be_bytes_into(bytes.data() + 1, value);
 
-    T actual_value = load_cbor_from<T>(bytes);
+    T actual_value = wfb::parse_cbor<T>(bytes);
     ASSERT_EQ(actual_value, value);
 }
 
@@ -32,13 +22,13 @@ TEST(CBOR, NonNegativeIntegers) {
     // Examples explicitly mentioned by RFC
     {
         std::vector<uint8_t> bytes = {0b000'01010};
-        auto actual_value = load_cbor_from<uint8_t>(bytes);
+        auto actual_value = wfb::parse_cbor<uint8_t>(bytes);
         ASSERT_EQ(actual_value, 10);
     }
 
     {
         std::vector<uint8_t> bytes = {0b000'11001, 0x01, 0xf4};
-        auto actual_value = load_cbor_from<uint16_t>(bytes);
+        auto actual_value = wfb::parse_cbor<uint16_t>(bytes);
         ASSERT_EQ(actual_value, 500);
     }
 
@@ -46,7 +36,7 @@ TEST(CBOR, NonNegativeIntegers) {
     // possible value
     for (uint64_t num = 0; num < 24; num++) {
         std::array<uint8_t, 1> bytes{static_cast<uint8_t>(num)};
-        auto actual_value = load_cbor_from<uint16_t>(bytes);
+        auto actual_value = wfb::parse_cbor<uint16_t>(bytes);
         ASSERT_EQ(actual_value, num);
     }
 
@@ -97,7 +87,7 @@ void test_negative_integer(uint8_t type_byte, __int128 value) {
         bytes.data() + 1, positive_representation
     );
 
-    auto actual_value = load_cbor_from<int64_t>(bytes);
+    auto actual_value = wfb::parse_cbor<int64_t>(bytes);
     ASSERT_EQ(actual_value, value);
 }
 
@@ -105,7 +95,7 @@ TEST(CBOR, NegativeIntegers) {
     // Example explicitly mentioned by RFC
     {
         std::vector<uint8_t> bytes = {0b001'11001, 0x01, 0xf3};
-        auto actual_value = load_cbor_from<int16_t>(bytes);
+        auto actual_value = wfb::parse_cbor<int16_t>(bytes);
         ASSERT_EQ(actual_value, -500);
     }
 
@@ -113,7 +103,7 @@ TEST(CBOR, NegativeIntegers) {
     // possible value
     for (int64_t num = -24; num < 0; num++) {
         std::array<uint8_t, 1> bytes{static_cast<uint8_t>(0b00100000 | std::abs(num) - 1)};
-        auto actual_value = load_cbor_from<int8_t>(bytes);
+        auto actual_value = wfb::parse_cbor<int8_t>(bytes);
         ASSERT_EQ(actual_value, num);
     }
 
@@ -163,60 +153,55 @@ TEST(CBOR, NegativeIntegers) {
     };
 
     for (auto num : bad_integers_64_bit) {
-        EXPECT_THROW(test_negative_integer<8>(0b00100000 | 27, num), std::out_of_range);
+        EXPECT_THROW(test_negative_integer<8>(0b00100000 | 27, num), std::overflow_error);
     }
 }
 
-TEST(CBOR, ByteStrings) {
-    // Examples explicitly mentioned by RFC
-    {
-        std::vector<uint8_t> bytes = {0b010'00101, 'a', 'b', 'c', 'd', 'e'};
-        std::vector<uint8_t> expected_bytes = {'a', 'b', 'c', 'd', 'e'};
-        std::vector<uint8_t> actual_bytes = load_cbor_from<wfb::cbor_byte_string>(bytes);
-        ASSERT_EQ(actual_bytes, expected_bytes);
-    }
+template <typename T>
+void test_integer_comparison_operators() {
+    T t_small{50};
+    wfb::cbor_integer int_small{50};
+    T t_large{100};
+    wfb::cbor_integer int_large{100};
 
-    {
-        std::vector<uint8_t> bytes;
-        bytes.resize(503);
-        bytes[0] = 0b010'11001;
-        bytes[1] = 0x01;
-        bytes[2] = 0xf4;
+    auto test_operators =
+        [=](auto&& lhs, auto&& rhs, bool eq, bool ne, bool lt, bool le, bool gt, bool ge) {
+            ASSERT_EQ(lhs == rhs, eq);
+            ASSERT_EQ(lhs != rhs, ne);
+            ASSERT_EQ(lhs < rhs, lt);
+            ASSERT_EQ(lhs <= rhs, le);
+            ASSERT_EQ(lhs > rhs, gt);
+            ASSERT_EQ(lhs >= rhs, ge);
+        };
 
-        std::vector<uint8_t> expected_byte_string;
-        expected_byte_string.resize(500);
+    auto test_small = [=](auto&& small_val) {
+        test_operators(small_val, t_small, true, false, false, true, false, true);
+        test_operators(small_val, int_small, true, false, false, true, false, true);
+        test_operators(small_val, t_large, false, true, true, true, false, false);
+        test_operators(small_val, int_large, false, true, true, true, false, false);
+    };
 
-        for (size_t i = 0; i < 500; i++) {
-            bytes[i + 3] = expected_byte_string[i] = i % 256;
-        }
+    auto test_large = [=](auto&& large_val) {
+        test_operators(large_val, t_small, false, true, false, false, true, true);
+        test_operators(large_val, int_small, false, true, false, false, true, true);
+        test_operators(large_val, t_large, true, false, false, true, false, true);
+        test_operators(large_val, int_large, true, false, false, true, false, true);
+    };
 
-        std::vector<uint8_t> actual_byte_string = load_cbor_from<wfb::cbor_byte_string>(bytes);
-        ASSERT_EQ(actual_byte_string, expected_byte_string);
-    }
+    test_small(t_small);
+    test_small(int_small);
+    test_large(t_large);
+    test_large(int_large);
 }
 
-TEST(CBOR, Arrays) {
-    {
-        std::vector<uint8_t> bytes = {0b100'01010, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        std::vector<uint8_t> expected_items = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        auto actual_items = static_cast<std::vector<uint8_t>>(load_cbor_from<wfb::cbor_array>(bytes));
-        ASSERT_EQ(expected_items, actual_items);
-    }
-}
-
-TEST(CBOR, Maps) {
-    {
-        std::vector<uint8_t> bytes = {0b101'00100, 0, 1, 2, 3, 4, 5, 6, 7};
-        std::map<uint8_t, uint8_t> expected_items = {{0, 1}, {2, 3}, {4, 5}, {6, 7}};
-        auto actual_items = static_cast<std::map<uint8_t, uint8_t>>(load_cbor_from<wfb::cbor_map>(bytes));
-        ASSERT_EQ(expected_items, actual_items);
-    }
-
-    using namespace wfb;
-
-    cbor_text_string asd{"hello"};
-    const std::string& foobar = asd;
-
-    cbor_value value{std::string{"hello world"}};
-    auto asdasd = value.get<std::string>();
+TEST(CBOR, IntegerComparisonOperators) {
+    test_integer_comparison_operators<wfb::cbor_integer>();
+    test_integer_comparison_operators<uint8_t>();
+    test_integer_comparison_operators<int8_t>();
+    test_integer_comparison_operators<uint16_t>();
+    test_integer_comparison_operators<int16_t>();
+    test_integer_comparison_operators<uint32_t>();
+    test_integer_comparison_operators<int32_t>();
+    test_integer_comparison_operators<uint64_t>();
+    test_integer_comparison_operators<int64_t>();
 }

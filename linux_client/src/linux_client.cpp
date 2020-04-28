@@ -1,10 +1,9 @@
-#include "binary_io.hpp"
 #include "bridge.hpp"
-#include "cbor.hpp"
-#include "util.hpp"
 #include "webauthn.hpp"
 
 #include <windows_fido_bridge/base64.hpp>
+#include <windows_fido_bridge/binary_io.hpp>
+#include <windows_fido_bridge/cbor.hpp>
 #include <windows_fido_bridge/communication.hpp>
 #include <windows_fido_bridge/exceptions.hpp>
 #include <windows_fido_bridge/format.hpp>
@@ -54,7 +53,7 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
         {"application", std::string{application}},
     };
 
-    byte_array raw_output = invoke_windows_bridge(parameters.dump());
+    byte_vector raw_output = invoke_windows_bridge(parameters.dump());
     json output = json::parse(raw_output);
 
     std::string cred_id = base64_decode(output["credential_id"].get<std::string>());
@@ -64,7 +63,7 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
     const std::vector<uint8_t>& auth_data_bytes = *attestation_object["authData"].get_ptr<const json::binary_t*>();
 
     binary_reader reader{reinterpret_cast<const uint8_t*>(auth_data_bytes.data()), auth_data_bytes.size()};
-    authenticator_data auth_data{reader};
+    auto auth_data = authenticator_data::parse(reader);
 
     auto response = reinterpret_cast<sk_enroll_response*>(calloc(1, sizeof(**enroll_response)));
 
@@ -77,18 +76,18 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
     response->key_handle_len = auth_data.attested_credential->id.size();
 
     binary_reader reader2{reinterpret_cast<const uint8_t*>(raw_attestation_object.data()), raw_attestation_object.size()};
-    auto cbor_attestation_object = load_cbor(reader2).get<cbor_map>();
+    auto cbor_attestation_object = parse_cbor<cbor_map>(reader2);
 
     auto cbor_att_statement = cbor_attestation_object["attStmt"].get<cbor_map>();
 
-    std::vector<uint8_t> cbor_signature = cbor_att_statement["sig"].get<cbor_byte_string>();
+    std::vector<uint8_t> cbor_signature = cbor_att_statement["sig"].get<cbor_string>();
 
     response->signature = reinterpret_cast<uint8_t*>(calloc(1, cbor_signature.size()));
     memcpy(response->signature, cbor_signature.data(), cbor_signature.size());
     response->signature_len = cbor_signature.size();
 
     std::vector<cbor_value> cbor_x5c_array = cbor_att_statement["x5c"].get<cbor_array>();
-    std::vector<uint8_t> cbor_x5c = cbor_x5c_array[0].get<cbor_byte_string>();
+    std::vector<uint8_t> cbor_x5c = cbor_x5c_array[0].get<cbor_string>();
 
     response->attestation_cert = reinterpret_cast<uint8_t*>(calloc(1, cbor_x5c.size()));
     memcpy(response->attestation_cert, cbor_x5c.data(), cbor_x5c.size());
@@ -177,12 +176,12 @@ int sk_sign(uint32_t alg, const uint8_t *message, size_t message_len,
         {"key_handle", base64_encode(reinterpret_cast<const unsigned char*>(key_handle), key_handle_len)},
     };
 
-    byte_array raw_output = invoke_windows_bridge(parameters.dump());
+    byte_vector raw_output = invoke_windows_bridge(parameters.dump());
     json output = json::parse(raw_output);
 
     std::string authenticator_data_str = base64_decode(output["authenticator_data"].get<std::string>());
     binary_reader authenticator_data_reader{reinterpret_cast<const uint8_t*>(authenticator_data_str.data()), authenticator_data_str.size()};
-    authenticator_data auth_data{authenticator_data_reader};
+    auto auth_data = authenticator_data::parse(authenticator_data_reader);
 
     auto response = reinterpret_cast<sk_sign_response*>(calloc(1, sizeof(**sign_response)));
 

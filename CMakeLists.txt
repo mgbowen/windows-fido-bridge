@@ -13,6 +13,7 @@ find_package(GTest)
 include(GoogleTest)
 
 add_subdirectory(common)
+add_subdirectory(cbor)
 
 if (NOT DEFINED TARGET)
     message(FATAL_ERROR "TARGET CMake variable is not defined")

@@ -19,9 +19,11 @@ cbor_value parse_cbor_from_reader(binary_reader& reader) {
         case CBOR_NEGATIVE_INTEGER: {
             return cbor_integer{reader};
         }
-        case CBOR_BYTE_STRING:
+        case CBOR_BYTE_STRING: {
+            return cbor_byte_string{reader};
+        }
         case CBOR_TEXT_STRING: {
-            return cbor_string{reader};
+            return cbor_text_string{reader};
         }
         case CBOR_ARRAY: {
             return cbor_array{reader};
@@ -31,7 +33,7 @@ cbor_value parse_cbor_from_reader(binary_reader& reader) {
         }
     }
 
-    throw std::runtime_error("Unrecognized CBOR type");
+    throw std::runtime_error("Unrecognized CBOR type {} at byte {}"_format(type, reader.index()));
 }
 
 }  // namespace detail

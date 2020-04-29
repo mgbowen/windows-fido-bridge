@@ -15,6 +15,5 @@ target_link_libraries(${PROJECT_NAME}
     cbor
     common
 
-    nlohmann_json::nlohmann_json
     fmt::fmt
 )

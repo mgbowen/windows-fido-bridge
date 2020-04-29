@@ -102,12 +102,19 @@ public:
     binary_reader(std::string_view str)
         : binary_reader(byte_vector(str.cbegin(), str.cend())) {}
 
+    binary_reader(const byte_string& str)
+        : binary_reader(byte_vector(str.cbegin(), str.cend())) {}
+
+    binary_reader(const byte_string_view& str)
+        : binary_reader(byte_vector(str.cbegin(), str.cend())) {}
+
     binary_reader(const uint8_t* buffer, size_t length)
         : binary_reader(byte_vector(buffer, buffer + length)) {}
 
     NON_COPYABLE(binary_reader);
     MOVABLE(binary_reader);
 
+    size_t index() const { return _pos; }
     size_t bytes_remaining() const { return _length - _pos; }
 
     template <size_t N>
@@ -173,6 +180,43 @@ private:
         std::array<uint8_t, sizeof(T)> buffer;
         read_into(buffer);
         return be_bytes_to_integer<T>(buffer);
+    }
+};
+
+class binary_writer {
+public:
+    size_t bytes_written() const { return _output.size(); }
+
+    void write_uint8_t(uint8_t value) { _output.push_back(value); }
+    void write_be_uint16_t(uint16_t value) { _write_integer<2>(value); }
+    void write_be_uint32_t(uint32_t value) { _write_integer<4>(value); }
+    void write_be_uint64_t(uint64_t value) { _write_integer<8>(value); }
+
+    void write_string(const std::string& buffer) {
+        write_bytes(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size());
+    }
+
+    void write_string(const byte_string& buffer) { write_bytes(buffer.data(), buffer.size()); }
+    void write_bytes(const byte_vector& buffer) { write_bytes(buffer.data(), buffer.size()); }
+
+    template <size_t N>
+    void write_bytes(const byte_array<N>& buffer) { write_bytes(buffer.data(), buffer.size()); }
+
+    void write_bytes(const uint8_t* buffer, size_t length) {
+        _output.insert(_output.end(), buffer, buffer + length);
+    }
+
+    byte_vector vector() const { return _output; }
+    byte_string string() const { return byte_string{_output.cbegin(), _output.cend()}; }
+
+//private:
+    byte_vector _output;
+
+    template <size_t N, typename T>
+    void _write_integer(T value) {
+        for (size_t byte_i = 0; byte_i < N; byte_i++) {
+            write_uint8_t(static_cast<uint8_t>(value >> ((N - byte_i - 1) * 8)));
+        }
     }
 };
 

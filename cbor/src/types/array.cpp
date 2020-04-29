@@ -6,12 +6,11 @@
 namespace wfb {
 
 cbor_array::cbor_array(binary_reader& reader) {
-    uint8_t type = reader.peek_uint8_t() >> 5;
+    auto [type, num_elements] = read_raw_length(reader);
     if (type != CBOR_ARRAY) {
         throw std::runtime_error("Invalid type value {:02x} for cbor_array"_format(type));
     }
 
-    uint64_t num_elements = read_raw_length(reader);
     _array.reserve(num_elements);
 
     for (uint64_t i = 0; i < num_elements; i++) {
@@ -19,16 +18,27 @@ cbor_array::cbor_array(binary_reader& reader) {
     }
 }
 
+cbor_array::cbor_array(std::initializer_list<cbor_value> list)
+    : _array(list.begin(), list.end()) {}
+
+void cbor_array::dump_cbor_into(binary_writer& writer) const {
+    write_initial_byte_into(writer, CBOR_ARRAY, _array.size());
+
+    for (auto&& value : _array) {
+        value.dump_cbor_into(writer);
+    }
+}
+
 bool cbor_array::operator==(const cbor_array& rhs) const { return _array == rhs._array; }
 bool cbor_array::operator<(const cbor_array& rhs) const { return _array < rhs._array; }
 
-void cbor_array::dump() const {
+void cbor_array::print_debug() const {
     std::stringstream ss;
-    dump(ss);
+    print_debug(ss);
     std::cerr << ss.str();
 }
 
-void cbor_array::dump(std::stringstream& ss) const {
+void cbor_array::print_debug(std::stringstream& ss) const {
     ss << '[';
 
     bool first = true;
@@ -37,7 +47,7 @@ void cbor_array::dump(std::stringstream& ss) const {
             ss << ", ";
         }
 
-        value.dump(ss);
+        value.print_debug(ss);
         first = false;
     }
 

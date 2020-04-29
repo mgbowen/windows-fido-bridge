@@ -16,11 +16,10 @@ struct attested_credential_data {
     byte_vector id;
     byte_vector public_key;
 
-    static attested_credential_data parse(std::string_view buffer);
-    static attested_credential_data parse(const byte_vector& buffer);
-    static attested_credential_data parse(const char* buffer, size_t length);
-    static attested_credential_data parse(const uint8_t* buffer, size_t length);
     static attested_credential_data parse(binary_reader& reader);
+    static attested_credential_data parse(binary_reader&& reader) {
+        return attested_credential_data::parse(reader);
+    }
 
     void dump() const;
 };
@@ -42,11 +41,10 @@ struct authenticator_data {
     std::optional<attested_credential_data> attested_credential;
     std::optional<std::vector<authenticator_data_extension>> extensions;
 
-    static authenticator_data parse(std::string_view buffer);
-    static authenticator_data parse(const byte_vector& buffer);
-    static authenticator_data parse(const char* buffer, size_t length);
-    static authenticator_data parse(const uint8_t* buffer, size_t length);
     static authenticator_data parse(binary_reader& reader);
+    static authenticator_data parse(binary_reader&& reader) {
+        return authenticator_data::parse(reader);
+    }
 
     void dump() const;
 };

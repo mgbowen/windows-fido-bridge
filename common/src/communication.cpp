@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <sstream>
 
 namespace {
@@ -72,7 +73,7 @@ namespace {
 void read_all_from(int fd, uint8_t* data, size_t length) {
     ssize_t num_read = 0;
     while (num_read < length) {
-        ssize_t result = read(fd, data + num_read, length - num_read);
+        ssize_t result = read(fd, data + num_read, length - num_read);\
 
         if (result == 0) {
             throw std::runtime_error("End of stream");

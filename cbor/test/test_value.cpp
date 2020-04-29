@@ -16,7 +16,7 @@ TEST(CBOR, ValueBoxing) {
         std::string str_obj = "hello world";
         std::string_view str_view = str_obj;
 
-        wfb::cbor_string original_cbor_str{"hello world"};
+        wfb::cbor_text_string original_cbor_str{"hello world"};
         ASSERT_EQ(original_cbor_str, c_str);
         // TODO: ASSERT_EQ(c_str, original_cbor_str);
         ASSERT_EQ(original_cbor_str, str_obj);
@@ -28,7 +28,7 @@ TEST(CBOR, ValueBoxing) {
         ASSERT_EQ(boxed_cbor_str, original_cbor_str);
         // TODO: ASSERT_EQ(original_cbor_str, boxed_cbor_str);
 
-        auto unboxed_cbor_str = static_cast<wfb::cbor_string>(boxed_cbor_str);
+        auto unboxed_cbor_str = static_cast<wfb::cbor_text_string>(boxed_cbor_str);
         ASSERT_EQ(unboxed_cbor_str, c_str);
         ASSERT_EQ(unboxed_cbor_str, str_obj);
         ASSERT_EQ(unboxed_cbor_str, str_view);
@@ -38,7 +38,7 @@ TEST(CBOR, ValueBoxing) {
 TEST(CBOR, ValueCasting) {
     // cbor_string
     {
-        wfb::cbor_string str{"hello world"};
+        wfb::cbor_text_string str{"hello world"};
         ASSERT_EQ(str, "hello world");
 
         wfb::cbor_value boxed_str{str};

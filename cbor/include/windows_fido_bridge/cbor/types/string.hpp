@@ -8,97 +8,101 @@
 #include <array>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <variant>
-
-#include <nlohmann/json.hpp>
 
 namespace wfb {
 
 class cbor_value;
 
-class cbor_string {
+namespace detail {
+
+template <typename TChar>
+constexpr uint8_t basic_cbor_string_type_value;
+
+template <> constexpr uint8_t basic_cbor_string_type_value<uint8_t> = CBOR_BYTE_STRING;
+template <> constexpr uint8_t basic_cbor_string_type_value<char> = CBOR_TEXT_STRING;
+
+}  // namespace detail
+
+template <typename TString>
+class basic_cbor_string {
 public:
-    explicit cbor_string(binary_reader& reader) {
-        _type = reader.peek_uint8_t() >> 5;
-        if (_type != CBOR_TEXT_STRING && _type != CBOR_BYTE_STRING) {
-            throw std::runtime_error("Invalid type value {:02x} for cbor_string"_format(_type));
+    using string_type = TString;
+    using value_type = typename string_type::value_type;
+    using string_view_type = std::basic_string_view<value_type, typename string_type::traits_type>;
+    using vector_type = std::vector<value_type>;
+
+    explicit basic_cbor_string(binary_reader& reader) {
+        auto [type, size] = read_raw_length(reader);
+        if (type != detail::basic_cbor_string_type_value<value_type>) {
+            throw std::runtime_error("Invalid type value {:02x} for basic_cbor_string"_format(type));
         }
 
-        _str.resize(read_raw_length(reader));
+        _str.resize(size);
         reader.read_into(reinterpret_cast<uint8_t*>(_str.data()), _str.size());
     }
 
-    cbor_string(std::string str) : _str(std::move(str)) {}
-    cbor_string(const char* str) : _str(str) {}
+    basic_cbor_string(string_type str) : _str(std::move(str)) {}
+    basic_cbor_string(const value_type* str) : _str(str) {}
 
-    bool is_binary() const { return _type == CBOR_BYTE_STRING; }
-    bool is_text() const { return _type == CBOR_TEXT_STRING; }
-
-    const std::string& string() const { return _str; }
-    const char* c_str() const { return _str.data(); }
-    const char* data() const { return _str.data(); }
-    size_t size() const { return _str.size(); }
-
-    operator std::string() const { return _str; }
-    operator std::string_view() const { return _str; }
-
-    operator byte_vector() const {
-        byte_vector result;
-        result.resize(size());
-        std::memcpy(result.data(), data(), size());
-        return result;
+    void dump_cbor_into(binary_writer& writer) const {
+        write_initial_byte_into(writer, detail::basic_cbor_string_type_value<value_type>, _str.size());
+        std::cerr << "String size: {}\n"_format(_str.size());
+        writer.write_string(_str);
     }
 
-    bool operator==(const cbor_string& rhs) const { return _str == rhs._str; }
-    bool operator<(const cbor_string& rhs) const { return _str < rhs._str; }
+    const string_type& string() const { return _str; }
+    string_view_type string_view() const { return _str; }
+    vector_type vector() const { return vector_type{_str.cbegin(), _str.cend()}; }
 
-    void dump() const {
+    const value_type* c_str() const { return reinterpret_cast<const value_type*>(_str.c_str()); }
+    const value_type* data() const { return _str.data(); }
+    size_t size() const { return _str.size(); }
+
+    operator string_type() const { return string(); }
+    operator string_view_type() const { return string_view(); }
+
+    operator vector_type() const { return vector(); }
+
+    bool operator==(const basic_cbor_string<TString>& rhs) const { return _str == rhs._str; }
+    bool operator<(const basic_cbor_string<TString>& rhs) const { return _str < rhs._str; }
+
+    void print_debug() const {
         std::stringstream ss;
-        dump(ss);
+        print_debug(ss);
         std::cerr << ss.str() << "\n";
     }
 
-    void dump(std::stringstream& ss) const {
-        ss << "\"";
-
-        if (is_binary()) {
+    void print_debug(std::stringstream& ss) const {
+        if constexpr (std::is_same_v<value_type, uint8_t>) {
             ss << 'b';
         }
 
-        for (auto c : _str) {
-            if (c == '"') {
-                ss << '\\';
-            }
+        ss << '"';
 
-            ss << c;
+        for (auto c : _str) {
+            if constexpr (std::is_same_v<value_type, uint8_t>) {
+                ss << "{:02x}"_format(c);
+            } else {
+                if (c == '"') {
+                    ss << '\\';
+                }
+
+                ss << c;
+            }
         }
 
-        ss << "\"";
+        ss << '"';
     }
 
 private:
-    uint8_t _type;
-    std::string _str;
+    TString _str;
 };
 
-//
-// Type casting assertions
-//
-
-/*
-static_assert(std::is_convertible_v<cbor_integer, int8_t>, "cbor_integer not convertible to int8_t");
-static_assert(std::is_convertible_v<cbor_integer, uint8_t>, "cbor_integer not convertible to uint8_t");
-static_assert(std::is_convertible_v<cbor_integer, int16_t>, "cbor_integer not convertible to int16_t");
-static_assert(std::is_convertible_v<cbor_integer, uint16_t>, "cbor_integer not convertible to uint16_t");
-static_assert(std::is_convertible_v<cbor_integer, int32_t>, "cbor_integer not convertible to int32_t");
-static_assert(std::is_convertible_v<cbor_integer, uint32_t>, "cbor_integer not convertible to uint32_t");
-static_assert(std::is_convertible_v<cbor_integer, int64_t>, "cbor_integer not convertible to int64_t");
-static_assert(std::is_convertible_v<cbor_integer, uint64_t>, "cbor_integer not convertible to uint64_t");
-
-static_assert(std::is_convertible_v<cbor_text_string, std::string>, "cbor_text_string not convertible to std::string");
-static_assert(std::is_convertible_v<cbor_byte_string, std::vector<uint8_t>>, "cbor_byte_string not convertible to std::vector<uint8_t>");
-*/
+using cbor_byte_string = basic_cbor_string<std::basic_string<uint8_t>>;
+using cbor_text_string = basic_cbor_string<std::basic_string<char>>;
 
 }  // namespace wfb

@@ -10,6 +10,7 @@ add_library(
     src/types/array.cpp
     src/types/integer.cpp
     src/types/value.cpp
+
     src/detail.cpp
     src/parse.cpp
 )
@@ -39,24 +40,27 @@ set_property(
 #
 # Tests
 #
+if (TARGET GTest::GTest)
+    set(test_target ${PROJECT_NAME}_tests)
+    add_executable(${test_target}
+        test/test_array.cpp
+        test/test_integer.cpp
+        test/test_map.cpp
+        test/test_string.cpp
+        test/test_value.cpp
+    )
 
-set(test_target ${PROJECT_NAME}_tests)
-add_executable(${test_target}
-    test/test_cbor.cpp
-    test/test_integer.cpp
-    test/test_value.cpp
-)
+    target_link_libraries(${test_target}
+        ${PROJECT_NAME}
 
-target_link_libraries(${test_target}
-    ${PROJECT_NAME}
+        GTest::GTest
+        GTest::Main
+    )
 
-    GTest::GTest
-    GTest::Main
-)
+    gtest_discover_tests(${test_target})
 
-gtest_discover_tests(${test_target})
-
-target_include_directories(${test_target}
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+    target_include_directories(${test_target}
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+endif()

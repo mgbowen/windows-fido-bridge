@@ -2,23 +2,6 @@
 
 namespace wfb {
 
-attested_credential_data attested_credential_data::parse(std::string_view buffer) {
-    return attested_credential_data::parse(buffer.data(), buffer.size());
-}
-
-attested_credential_data attested_credential_data::parse(const byte_vector& buffer) {
-    return attested_credential_data::parse(buffer.data(), buffer.size());
-}
-
-attested_credential_data attested_credential_data::parse(const char* buffer, size_t length) {
-    return attested_credential_data::parse(reinterpret_cast<const uint8_t*>(buffer), length);
-}
-
-attested_credential_data attested_credential_data::parse(const uint8_t* buffer, size_t length) {
-    binary_reader reader(buffer, length);
-    return attested_credential_data::parse(reader);
-}
-
 attested_credential_data attested_credential_data::parse(binary_reader& reader) {
     attested_credential_data result{};
     reader.read_into(result.authenticator_attestation_guid);
@@ -68,23 +51,6 @@ void attested_credential_data::dump() const {
     }
 
     std::cerr << "\n";
-}
-
-authenticator_data authenticator_data::parse(std::string_view buffer) {
-    return authenticator_data::parse(buffer.data(), buffer.size());
-}
-
-authenticator_data authenticator_data::parse(const byte_vector& buffer) {
-    return authenticator_data::parse(buffer.data(), buffer.size());
-}
-
-authenticator_data authenticator_data::parse(const char* buffer, size_t length) {
-    return authenticator_data::parse(reinterpret_cast<const uint8_t*>(buffer), length);
-}
-
-authenticator_data authenticator_data::parse(const uint8_t* buffer, size_t length) {
-    binary_reader reader(buffer, length);
-    return authenticator_data::parse(reader);
 }
 
 authenticator_data authenticator_data::parse(binary_reader& reader) {

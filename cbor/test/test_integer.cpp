@@ -7,15 +7,53 @@
 #include <limits>
 #include <vector>
 
+template <typename T> void test_integer_roundtrip(T value);
+
 template <typename T>
-void test_integer(uint8_t type_byte, T value) {
-    std::array<uint8_t, sizeof(T) + 1> bytes{};
-    bytes[0] = type_byte;
+void test_integer(uint8_t type_byte, T expected_value) {
+    std::array<uint8_t, sizeof(T) + 1> expected_bytes{};
+    expected_bytes[0] = type_byte;
 
-    wfb::integer_to_be_bytes_into(bytes.data() + 1, value);
+    wfb::integer_to_be_bytes_into(expected_bytes.data() + 1, expected_value);
 
-    T actual_value = wfb::parse_cbor<T>(bytes);
-    ASSERT_EQ(actual_value, value);
+    auto actual_value_cbor = wfb::parse_cbor<wfb::cbor_integer>(expected_bytes);
+    T actual_value = actual_value_cbor;
+    ASSERT_EQ(actual_value, expected_value);
+
+    test_integer_roundtrip<T>(expected_value);
+}
+
+template <typename T>
+void test_integer_roundtrip(T value) {
+    wfb::cbor_integer initial_cbor{value};
+
+    uint64_t raw_value = initial_cbor.raw_value();
+    wfb::byte_vector actual_bytes = wfb::dump_cbor(initial_cbor);
+    wfb::binary_reader actual_bytes_reader(actual_bytes.data(), actual_bytes.size());
+
+    uint8_t actual_initial_byte = actual_bytes_reader.read_uint8_t();
+    ASSERT_EQ(actual_initial_byte >> 5, value >= 0 ? 0 : 1);
+    uint8_t actual_additional_info = actual_initial_byte & 0x1f;
+
+    if (raw_value < 24) {
+        ASSERT_EQ(actual_bytes.size(), 1);
+        ASSERT_EQ(actual_additional_info, raw_value);
+    } else if (raw_value <= std::numeric_limits<uint8_t>::max()) {
+        ASSERT_EQ(actual_bytes.size(), 2);
+        ASSERT_EQ(actual_bytes_reader.read_uint8_t(), raw_value);
+    } else if (raw_value <= std::numeric_limits<uint16_t>::max()) {
+        ASSERT_EQ(actual_bytes.size(), 3);
+        ASSERT_EQ(actual_bytes_reader.read_be_uint16_t(), raw_value);
+    } else if (raw_value <= std::numeric_limits<uint32_t>::max()) {
+        ASSERT_EQ(actual_bytes.size(), 5);
+        ASSERT_EQ(actual_bytes_reader.read_be_uint32_t(), raw_value);
+    } else if (raw_value <= std::numeric_limits<uint64_t>::max()) {
+        ASSERT_EQ(actual_bytes.size(), 9);
+        ASSERT_EQ(actual_bytes_reader.read_be_uint64_t(), raw_value);
+    }
+
+    auto actual_cbor = wfb::parse_cbor<wfb::cbor_integer>(actual_bytes);
+    ASSERT_EQ(initial_cbor, actual_cbor);
 }
 
 TEST(CBOR, NonNegativeIntegers) {
@@ -89,6 +127,11 @@ void test_negative_integer(uint8_t type_byte, __int128 value) {
 
     auto actual_value = wfb::parse_cbor<int64_t>(bytes);
     ASSERT_EQ(actual_value, value);
+
+    if (value >= std::numeric_limits<int64_t>::min() &&
+        value <= std::numeric_limits<int64_t>::max()) {
+        test_integer_roundtrip((int64_t)value);
+    }
 }
 
 TEST(CBOR, NegativeIntegers) {

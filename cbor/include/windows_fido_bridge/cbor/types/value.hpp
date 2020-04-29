@@ -56,7 +56,8 @@ class cbor_value {
 public:
     using storage_type = std::variant<
         cbor_integer,
-        cbor_string,
+        cbor_byte_string,
+        cbor_text_string,
         cbor_array,
         cbor_map
     >;
@@ -67,20 +68,22 @@ public:
     COPYABLE(cbor_value);
     MOVABLE(cbor_value);
 
+    void dump_cbor_into(binary_writer& writer) const;
+
     template <typename T>
     T get() const {
         return std::visit(cbor_value_converter<T, storage_type>{}, _storage);
     }
 
-    void dump() const;
-    void dump(std::stringstream& ss) const;
+    void print_debug() const;
+    void print_debug(std::stringstream& ss) const;
 
     template <typename T> explicit operator T() const { return get<T>(); }
 
     bool operator==(const cbor_value& rhs) const;
     bool operator<(const cbor_value& rhs) const;
 
-private:
+//private:
     storage_type _storage;
 };
 

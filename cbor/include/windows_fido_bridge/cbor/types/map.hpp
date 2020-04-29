@@ -16,28 +16,38 @@ namespace wfb {
 template <typename TCborValue>
 class basic_cbor_map {
 public:
+    basic_cbor_map(std::initializer_list<std::pair<cbor_value, cbor_value>> list)
+        : _map(list.begin(), list.end()) {}
+
     explicit basic_cbor_map(binary_reader& reader) {
-        uint8_t type = reader.peek_uint8_t() >> 5;
+        auto [type, num_pairs] = read_raw_length(reader);
         if (type != CBOR_MAP) {
             throw std::runtime_error("Invalid type value {:02x} for cbor_map"_format(type));
         }
 
-        uint64_t num_pairs = read_raw_length(reader);
-
         for (uint64_t i = 0; i < num_pairs; i++) {
             auto key = parse_cbor<TCborValue>(reader);
             auto value = parse_cbor<TCborValue>(reader);
-            _map.emplace(key, value);
+            _map.emplace(std::move(key), std::move(value));
         }
     }
 
-    operator std::map<TCborValue, TCborValue>() const { return _map; }
+    void dump_cbor_into(binary_writer& writer) const {
+        write_initial_byte_into(writer, CBOR_MAP, _map.size());
 
-    bool operator==(const basic_cbor_map<TCborValue>& rhs) const { return _map == rhs._map; }
-    bool operator<(const basic_cbor_map<TCborValue>& rhs) const { return _map < rhs._map; }
+        for (auto&& pair : _map) {
+            pair.first.dump_cbor_into(writer);
+            pair.second.dump_cbor_into(writer);
+        }
+    }
 
     template <typename TKey, typename TValue>
-    explicit operator std::map<TKey, TValue>() const {
+    std::map<TKey, TValue> map() const {
+        if constexpr (is_same_remove_cvref_v<TKey, TCborValue> &&
+                      is_same_remove_cvref_v<TValue, TCborValue>) {
+            return _map;
+        }
+
         std::map<TKey, TValue> result;
         for (auto&& pair : _map) {
             result.emplace(static_cast<TKey>(pair.first), static_cast<TValue>(pair.second));
@@ -46,20 +56,30 @@ public:
         return result;
     }
 
-    const std::map<TCborValue, TCborValue>& map() const { return _map; }
+    const std::map<TCborValue, TCborValue> map() const { return _map; }
+    operator std::map<TCborValue, TCborValue>() const { return map(); }
+
+    size_t size() const { return _map.size(); }
+
+    template <typename TKey, typename TValue>
+    explicit operator std::map<TKey, TValue>() const { return map<TKey, TValue>(); }
 
     template <typename TKey>
-    const TCborValue& operator[](TKey&& key) const {
-        return _map.at(key);
-    }
+    const TCborValue& operator[](TKey&& key) const { return _map.at(key); }
 
-    void dump() const {
+    template <typename TValue, typename TKey>
+    TValue at(TKey&& key) const { return static_cast<TValue>(_map.at(key)); }
+
+    bool operator==(const basic_cbor_map<TCborValue>& rhs) const { return _map == rhs._map; }
+    bool operator<(const basic_cbor_map<TCborValue>& rhs) const { return _map < rhs._map; }
+
+    void print_debug() const {
         std::stringstream ss;
-        dump(ss);
+        print_debug(ss);
         std::cerr << ss.str() << "\n";
     }
 
-    void dump(std::stringstream& ss) const {
+    void print_debug(std::stringstream& ss) const {
         ss << '{';
 
         bool first = true;
@@ -68,9 +88,9 @@ public:
                 ss << ", ";
             }
 
-            pair.first.dump(ss);
+            pair.first.print_debug(ss);
             ss << ": ";
-            pair.second.dump(ss);
+            pair.second.print_debug(ss);
 
             first = false;
         }

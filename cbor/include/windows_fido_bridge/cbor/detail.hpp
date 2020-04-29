@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <tuple>
 
 namespace wfb {
 
@@ -12,7 +13,9 @@ constexpr const uint8_t CBOR_ARRAY = 4;
 constexpr const uint8_t CBOR_MAP = 5;
 
 class binary_reader;
+class binary_writer;
 
-uint64_t read_raw_length(binary_reader& reader);
+std::tuple<uint8_t, uint64_t> read_raw_length(binary_reader& reader);
+void write_initial_byte_into(binary_writer& writer, uint8_t major_type, uint64_t raw_value);
 
 }  // namespace wfb

@@ -1,7 +1,6 @@
 #include "bridge.hpp"
 #include "webauthn.hpp"
 
-#include <windows_fido_bridge/base64.hpp>
 #include <windows_fido_bridge/binary_io.hpp>
 #include <windows_fido_bridge/cbor.hpp>
 #include <windows_fido_bridge/communication.hpp>
@@ -9,8 +8,6 @@
 #include <windows_fido_bridge/format.hpp>
 #include <windows_fido_bridge/types.hpp>
 #include <windows_fido_bridge/util.hpp>
-
-#include <nlohmann/json.hpp>
 
 extern "C" {
 
@@ -32,9 +29,16 @@ extern "C" {
 #include <sys/wait.h>
 #include <unistd.h>
 
-using json = nlohmann::json;
-
 namespace wfb {
+
+namespace {
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size);
+std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size);
+std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer);
+std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer);
+
+}  // namespace
 
 extern "C" {
 
@@ -47,51 +51,36 @@ uint32_t sk_api_version(void) {
 int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
               const char *application, uint8_t flags, const char *pin,
               struct sk_option **options, struct sk_enroll_response **enroll_response) {
-    json parameters = {
+    wfb::cbor_map parameters = {
         {"type", "create"},
-        {"challenge", base64_encode(reinterpret_cast<const unsigned char*>(challenge), challenge_len)},
-        {"application", std::string{application}},
+        {"challenge", byte_string{challenge, challenge + challenge_len}},
+        {"application", application},
     };
 
-    byte_vector raw_output = invoke_windows_bridge(parameters.dump());
-    json output = json::parse(raw_output);
+    byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
+    auto output = parse_cbor<cbor_map>(raw_output);
+    output.print_debug();
 
-    std::string cred_id = base64_decode(output["credential_id"].get<std::string>());
+    auto raw_attestation_object = output.at<byte_string>("attestation_object");
+    auto attestation_object = parse_cbor<cbor_map>(raw_attestation_object);
+    auto auth_data = authenticator_data::parse({attestation_object.at<byte_vector>("authData")});
+    auto attestation_statement = attestation_object.at<cbor_map>("attStmt");
+    byte_vector signature = attestation_statement.at<cbor_byte_string>("sig");
+    byte_vector x5c = attestation_statement.at<cbor_array>("x5c")[0].get<cbor_byte_string>();
 
-    std::string raw_attestation_object = base64_decode(output["attestation_object"].get<std::string>());
-    json attestation_object = json::from_cbor(raw_attestation_object);
-    const std::vector<uint8_t>& auth_data_bytes = *attestation_object["authData"].get_ptr<const json::binary_t*>();
-
-    binary_reader reader{reinterpret_cast<const uint8_t*>(auth_data_bytes.data()), auth_data_bytes.size()};
-    auto auth_data = authenticator_data::parse(reader);
-
+    // Construct the response to send back to OpenSSH. The ownership of the
+    // memory we allocate here is transferred to OpenSSH; they are responsible
+    // for deallocating it.
     auto response = reinterpret_cast<sk_enroll_response*>(calloc(1, sizeof(**enroll_response)));
 
-    response->public_key = reinterpret_cast<uint8_t*>(calloc(1, auth_data.attested_credential->public_key.size()));
-    memcpy(response->public_key, auth_data.attested_credential->public_key.data(), auth_data.attested_credential->public_key.size());
-    response->public_key_len = auth_data.attested_credential->public_key.size();
+    std::tie(response->public_key, response->public_key_len) =
+        calloc_from_data(auth_data.attested_credential->public_key);
 
-    response->key_handle = reinterpret_cast<uint8_t*>(calloc(1, auth_data.attested_credential->id.size()));
-    memcpy(response->key_handle, auth_data.attested_credential->id.data(), auth_data.attested_credential->id.size());
-    response->key_handle_len = auth_data.attested_credential->id.size();
+    std::tie(response->key_handle, response->key_handle_len) =
+        calloc_from_data(auth_data.attested_credential->id);
 
-    binary_reader reader2{reinterpret_cast<const uint8_t*>(raw_attestation_object.data()), raw_attestation_object.size()};
-    auto cbor_attestation_object = parse_cbor<cbor_map>(reader2);
-
-    auto cbor_att_statement = cbor_attestation_object["attStmt"].get<cbor_map>();
-
-    std::vector<uint8_t> cbor_signature = cbor_att_statement["sig"].get<cbor_string>();
-
-    response->signature = reinterpret_cast<uint8_t*>(calloc(1, cbor_signature.size()));
-    memcpy(response->signature, cbor_signature.data(), cbor_signature.size());
-    response->signature_len = cbor_signature.size();
-
-    std::vector<cbor_value> cbor_x5c_array = cbor_att_statement["x5c"].get<cbor_array>();
-    std::vector<uint8_t> cbor_x5c = cbor_x5c_array[0].get<cbor_string>();
-
-    response->attestation_cert = reinterpret_cast<uint8_t*>(calloc(1, cbor_x5c.size()));
-    memcpy(response->attestation_cert, cbor_x5c.data(), cbor_x5c.size());
-    response->attestation_cert_len = cbor_x5c.size();
+    std::tie(response->signature, response->signature_len) = calloc_from_data(signature);
+    std::tie(response->attestation_cert, response->attestation_cert_len) = calloc_from_data(x5c);
 
     *enroll_response = response;
     return 0;
@@ -102,7 +91,7 @@ struct fido_signature {
     std::array<uint8_t, 32> sig_s;
 };
 
-fido_signature parse_fido_signature(const std::string& buffer) {
+fido_signature parse_fido_signature(const byte_string& buffer) {
     // To avoid building or depending on a full ASN.1 parser, we hardcode the
     // format of the signature coming from the authenticator and bail out if we
     // see something we don't expect; we expect an ASN.1 SEQUENCE of two 256-bit
@@ -169,27 +158,26 @@ int sk_sign(uint32_t alg, const uint8_t *message, size_t message_len,
             const char *application, const uint8_t *key_handle, size_t key_handle_len,
             uint8_t flags, const char *pin, struct sk_option **options,
             struct sk_sign_response **sign_response) {
-    json parameters = {
+    wfb::cbor_map parameters = {
         {"type", "sign"},
-        {"message", base64_encode(reinterpret_cast<const unsigned char*>(message), message_len)},
-        {"application", std::string{application}},
-        {"key_handle", base64_encode(reinterpret_cast<const unsigned char*>(key_handle), key_handle_len)},
+        {"message", byte_string{message, message + message_len}},
+        {"application", application},
+        {"key_handle", byte_string{key_handle, key_handle + key_handle_len}},
     };
 
-    byte_vector raw_output = invoke_windows_bridge(parameters.dump());
-    json output = json::parse(raw_output);
+    byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
+    auto output = wfb::parse_cbor<cbor_map>(raw_output);
 
-    std::string authenticator_data_str = base64_decode(output["authenticator_data"].get<std::string>());
-    binary_reader authenticator_data_reader{reinterpret_cast<const uint8_t*>(authenticator_data_str.data()), authenticator_data_str.size()};
-    auto auth_data = authenticator_data::parse(authenticator_data_reader);
+    byte_string raw_auth_data = output.at<byte_string>("authenticator_data");
+    auto auth_data = authenticator_data::parse({raw_auth_data});
 
     auto response = reinterpret_cast<sk_sign_response*>(calloc(1, sizeof(**sign_response)));
 
     response->flags = auth_data.flags;
     response->counter = auth_data.signature_count;
 
-    std::string signature_str = base64_decode(output["signature"].get<std::string>());
-    fido_signature signature = parse_fido_signature(signature_str);
+    auto raw_signature = output.at<byte_string>("signature");
+    fido_signature signature = parse_fido_signature(raw_signature);
 
     response->sig_r = reinterpret_cast<uint8_t*>(calloc(1, signature.sig_r.size()));
     memcpy(response->sig_r, signature.sig_r.data(), signature.sig_r.size());
@@ -210,5 +198,27 @@ int sk_load_resident_keys(const char *pin, struct sk_option **options,
 }
 
 }  // extern "C"
+
+namespace {
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size) {
+    uint8_t* result = reinterpret_cast<uint8_t*>(calloc(1, size));
+    memcpy(result, buffer, size);
+    return {result, size};
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size) {
+    return calloc_from_data(reinterpret_cast<const uint8_t*>(buffer), size);
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer) {
+    return calloc_from_data(buffer.data(), buffer.size());
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer) {
+    return calloc_from_data(buffer.data(), buffer.size());
+}
+
+}  // namespace
 
 }  // namespace wfb

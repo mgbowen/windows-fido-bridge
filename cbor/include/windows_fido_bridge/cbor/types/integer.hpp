@@ -22,25 +22,9 @@ constexpr bool can_fit_in_cbor_integer_v =
 class cbor_integer {
 public:
     explicit cbor_integer(binary_reader& reader) {
-        uint8_t initial_byte = reader.read_uint8_t();
-        _type = initial_byte >> 5;
-        uint8_t additional_info = initial_byte & 0x1f;
-
-        if (additional_info < 24) {
-            _raw_value = additional_info;
-        } else {
-            switch (additional_info) {
-                case 24: _raw_value = reader.read_uint8_t(); break;
-                case 25: _raw_value = reader.read_be_uint16_t(); break;
-                case 26: _raw_value = reader.read_be_uint32_t(); break;
-                case 27: _raw_value = reader.read_be_uint64_t(); break;
-                default:
-                    throw std::runtime_error(
-                        "Invalid additional information value {} for length (initial_byte = 0x{:02x})"_format(
-                            additional_info, initial_byte
-                        )
-                    );
-            }
+        std::tie(_type, _raw_value) = read_raw_length(reader);
+        if (_type != CBOR_NON_NEGATIVE_INTEGER && _type != CBOR_NEGATIVE_INTEGER) {
+            throw std::runtime_error("Invalid type value {:02x} for cbor_integer"_format(_type));
         }
     }
 
@@ -53,6 +37,10 @@ public:
             _type = CBOR_NEGATIVE_INTEGER;
             _raw_value = static_cast<uint64_t>((value + 1) * -1);
         }
+    }
+
+    void dump_cbor_into(binary_writer& writer) const {
+        write_initial_byte_into(writer, _type, _raw_value);
     }
 
     template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
@@ -93,13 +81,13 @@ public:
     bool operator>=(const cbor_integer& rhs) const { return !(*this < rhs); }
     bool operator<=(const cbor_integer& rhs) const { return *this < rhs || *this == rhs; }
 
-    void dump() const {
+    void print_debug() const {
         std::stringstream ss;
-        dump(ss);
+        print_debug(ss);
         std::cerr << ss.str() << "\n";
     }
 
-    void dump(std::stringstream& ss) const {
+    void print_debug(std::stringstream& ss) const {
         if (_type == CBOR_NEGATIVE_INTEGER) {
             // Use special logic to handle this so we don't run into potential
             // overflow issues for very small negative numbers

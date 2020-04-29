@@ -62,7 +62,6 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
     auto output = parse_cbor<cbor_map>(raw_output);
-    output.print_debug();
 
     auto raw_attestation_object = output.at<byte_string>("attestation_object");
     auto attestation_object = parse_cbor<cbor_map>(raw_attestation_object);

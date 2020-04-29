@@ -38,7 +38,6 @@ void write_initial_byte_into(binary_writer& writer, uint8_t major_type, uint64_t
     }
 
     uint8_t major_type_shifted = (major_type << 5) & 0b111'00000;
-    std::cerr << (int)major_type_shifted << ", " << raw_value << "\n";
 
     if (raw_value < 24) {
         writer.write_uint8_t(major_type_shifted | raw_value);

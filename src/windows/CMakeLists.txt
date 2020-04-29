@@ -1,8 +1,8 @@
 project(windowsfidobridge)
 
 add_executable(${PROJECT_NAME}
+    src/main.cpp
     src/windows_error.cpp
-    src/windows_server.cpp
     src/windows_util.cpp
 )
 
@@ -28,4 +28,9 @@ target_compile_definitions(${PROJECT_NAME}
         # Windows 10
         WINVER=0x0A00
         _WIN32_WINNT=0x0A00
+)
+
+install(TARGETS ${PROJECT_NAME}
+    # Override this, it's not intended to be executed directly
+    RUNTIME DESTINATION lib
 )

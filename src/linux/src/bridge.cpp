@@ -6,8 +6,24 @@
 #include <windows_fido_bridge/exceptions.hpp>
 #include <windows_fido_bridge/format.hpp>
 
+#include <dlfcn.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+namespace {
+
+// https://stackoverflow.com/a/51993539
+fs::path get_library_path() {
+    Dl_info dl_info;
+    dladdr((void*)get_library_path, &dl_info);
+    return dl_info.dli_fname;
+}
+
+}  // namespace
 
 namespace wfb {
 
@@ -46,12 +62,13 @@ byte_vector invoke_windows_bridge(const uint8_t* buffer, size_t length) {
             dup2(out_to_child_pipe.read_fd(), fileno(stdin));
             dup2(in_from_child_pipe.write_fd(), fileno(stdout));
 
-            // TODO: add logic to dynamically find the Windows bridge
-            const char* windows_server_path = "/home/mgbowen/windows_fido_bridge/build/windows_server/windows_server/windows_server.exe";
-            execl(windows_server_path, windows_server_path, nullptr);
+            // We expect the Windows bridge executable to be in the same
+            // directory as the OpenSSH middleware library
+            std::string windows_exe_path = (get_library_path().parent_path() / "windowsfidobridge.exe").string();
+            execl(windows_exe_path.c_str(), windows_exe_path.c_str(), nullptr);
 
             // exec* should not return; if we get to this point, it failed
-            throw_errno_exception("Failed to exec into Windows bridge at \"{}\""_format(windows_server_path));
+            throw_errno_exception("Failed to exec into Windows bridge at \"{}\""_format(windows_exe_path));
         } catch (const std::exception& ex) {
             std::cerr << "ERROR: caught exception while attempting to invoke the Windows bridge: "
                          "{}\nAborting\n"_format(ex.what());
@@ -74,8 +91,6 @@ byte_vector invoke_windows_bridge(const uint8_t* buffer, size_t length) {
     in_from_child_pipe.close_write();
 
     // Send parameters to the child process
-    std::cerr << "Sending arguments:\n";
-    dump_binary(buffer, length, 4);
     wfb::send_message(out_to_child_pipe.write_fd(), buffer, length);
 
     // Receive the output back

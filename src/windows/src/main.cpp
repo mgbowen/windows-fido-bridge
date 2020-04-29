@@ -76,8 +76,6 @@ WEBAUTHN_CREDENTIAL_ATTESTATION* create_credential(const wfb::cbor_map& paramete
         &credential_attestation
     );
 
-    std::wcerr << WebAuthNGetErrorName(result) << "\n";
-
     return credential_attestation;
 }
 
@@ -174,8 +172,6 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
         std::cerr << "ERROR: unrecognized type!\n";
         abort();
     }
-
-    std::cerr << "Done!\n";
 
     return 0;
 }

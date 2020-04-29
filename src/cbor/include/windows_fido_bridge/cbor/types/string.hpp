@@ -50,7 +50,6 @@ public:
 
     void dump_cbor_into(binary_writer& writer) const {
         write_initial_byte_into(writer, detail::basic_cbor_string_type_value<value_type>, _str.size());
-        std::cerr << "String size: {}\n"_format(_str.size());
         writer.write_string(_str);
     }
 

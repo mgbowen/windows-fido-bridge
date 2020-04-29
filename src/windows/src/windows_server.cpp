@@ -105,7 +105,7 @@ WEBAUTHN_ASSERTION* create_signature(const wfb::cbor_map& parameters) {
     WEBAUTHN_AUTHENTICATOR_GET_ASSERTION_OPTIONS options = {
         .dwVersion = WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS_CURRENT_VERSION,
         .CredentialList = WEBAUTHN_CREDENTIALS{
-            .cCredentials = 1,
+            .cCredentials = static_cast<DWORD>(credentials_arr.size()),
             .pCredentials = credentials_arr.data(),
         },
     };

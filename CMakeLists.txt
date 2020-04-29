@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(windows_fido_bridge)
+project(windows-fido-bridge)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -11,11 +11,13 @@ enable_testing()
 find_package(GTest)
 include(GoogleTest)
 
-add_subdirectory(common)
-add_subdirectory(cbor)
+add_subdirectory(src/common)
+add_subdirectory(src/cbor)
 
-if (NOT DEFINED TARGET)
-    message(FATAL_ERROR "TARGET CMake variable is not defined")
+if(BUILD_TARGET STREQUAL linux)
+    add_subdirectory(src/linux)
+elseif(BUILD_TARGET STREQUAL windows)
+    add_subdirectory(src/windows)
 else()
-    add_subdirectory(${TARGET})
+    message(FATAL_ERROR "BUILD_TARGET CMake variable is not defined")
 endif()

@@ -16,15 +16,8 @@ extern "C" {
 }
 
 #include <array>
-#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <optional>
-#include <string_view>
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -37,6 +30,11 @@ std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size
 std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size);
 std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer);
 std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer);
+
+template <size_t N>
+std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
+    return calloc_from_data(buffer.data(), buffer.size());
+}
 
 }  // namespace
 
@@ -51,6 +49,11 @@ uint32_t sk_api_version(void) {
 int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
               const char *application, uint8_t flags, const char *pin,
               struct sk_option **options, struct sk_enroll_response **enroll_response) {
+    if (alg != SSH_SK_ECDSA) {
+        // TODO
+        return SSH_SK_ERR_UNSUPPORTED;
+    }
+
     wfb::cbor_map parameters = {
         {"type", "create"},
         {"challenge", byte_string{challenge, challenge + challenge_len}},
@@ -158,6 +161,11 @@ int sk_sign(uint32_t alg, const uint8_t *message, size_t message_len,
             const char *application, const uint8_t *key_handle, size_t key_handle_len,
             uint8_t flags, const char *pin, struct sk_option **options,
             struct sk_sign_response **sign_response) {
+    if (alg != SSH_SK_ECDSA) {
+        // TODO
+        return SSH_SK_ERR_UNSUPPORTED;
+    }
+
     wfb::cbor_map parameters = {
         {"type", "sign"},
         {"message", byte_string{message, message + message_len}},
@@ -179,13 +187,8 @@ int sk_sign(uint32_t alg, const uint8_t *message, size_t message_len,
     auto raw_signature = output.at<byte_string>("signature");
     fido_signature signature = parse_fido_signature(raw_signature);
 
-    response->sig_r = reinterpret_cast<uint8_t*>(calloc(1, signature.sig_r.size()));
-    memcpy(response->sig_r, signature.sig_r.data(), signature.sig_r.size());
-    response->sig_r_len = signature.sig_r.size();
-
-    response->sig_s = reinterpret_cast<uint8_t*>(calloc(1, signature.sig_s.size()));
-    memcpy(response->sig_s, signature.sig_s.data(), signature.sig_s.size());
-    response->sig_s_len = signature.sig_s.size();
+    std::tie(response->sig_r, response->sig_r_len) = calloc_from_data(signature.sig_r);
+    std::tie(response->sig_s, response->sig_s_len) = calloc_from_data(signature.sig_s);
 
     *sign_response = response;
     return 0;

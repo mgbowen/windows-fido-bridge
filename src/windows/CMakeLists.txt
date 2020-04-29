@@ -1,4 +1,4 @@
-project(windows_server)
+project(windowsfidobridge)
 
 add_executable(${PROJECT_NAME}
     src/windows_error.cpp
@@ -16,6 +16,8 @@ target_link_libraries(${PROJECT_NAME}
 
     -static-libgcc
     -static-libstdc++
+
+    # TODO: don't hardcode this
     "/mnt/c/Program Files (x86)/Windows Kits/10/Lib/10.0.18362.0/um/x64/webauthn.lib"
 )
 

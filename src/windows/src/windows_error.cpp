@@ -64,7 +64,9 @@ const windows_error_category category_instance;
 
 namespace wfb {
 
-std::error_code make_error_code(windows_error_code e) { return {e.code, category_instance}; }
+std::error_code make_error_code(windows_error_code e) {
+    return {static_cast<int>(e.code), category_instance};
+}
 
 void throw_windows_exception() {
     throw_windows_exception(static_cast<const char*>(nullptr));

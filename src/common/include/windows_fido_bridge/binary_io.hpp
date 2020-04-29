@@ -209,7 +209,7 @@ public:
     byte_vector vector() const { return _output; }
     byte_string string() const { return byte_string{_output.cbegin(), _output.cend()}; }
 
-//private:
+private:
     byte_vector _output;
 
     template <size_t N, typename T>

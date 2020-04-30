@@ -2,6 +2,7 @@ project(windowsfidobridge)
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
+    src/window.cpp
     src/windows_error.cpp
     src/windows_util.cpp
 )
@@ -23,6 +24,7 @@ target_link_libraries(${PROJECT_NAME}
 
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
+        UNICODE
         _UNICODE
 
         # Windows 10

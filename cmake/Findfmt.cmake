@@ -1,3 +1,6 @@
+# fmt distributes a CMake config file, but on some platforms (e.g. Debian), it
+# installs to /usr/include, which causes issues when cross compiling. This
+# script uses some custom logic to avoid that problem.
 find_path(
     FMT_INCLUDE_DIR
     fmt/format.h

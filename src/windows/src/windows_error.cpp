@@ -77,7 +77,19 @@ void throw_windows_exception(const std::string& error_message) {
 }
 
 void throw_windows_exception(const char* error_message) {
-    std::error_code ec = make_error_code(windows_error_code(GetLastError()));
+    throw_windows_exception(GetLastError(), error_message);
+}
+
+void throw_windows_exception(uint32_t code) {
+    throw_windows_exception(code, static_cast<const char*>(nullptr));
+}
+
+void throw_windows_exception(uint32_t code, const std::string& error_message) {
+    throw_windows_exception(code, error_message.c_str());
+}
+
+void throw_windows_exception(uint32_t code, const char* error_message) {
+    std::error_code ec = make_error_code(windows_error_code(code));
     if (error_message != nullptr) {
         throw std::system_error(ec, error_message);
     }

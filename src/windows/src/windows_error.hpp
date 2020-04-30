@@ -16,6 +16,9 @@ std::error_code make_error_code(windows_error_code e);
 void throw_windows_exception();
 void throw_windows_exception(const std::string& error_message);
 void throw_windows_exception(const char* error_message);
+void throw_windows_exception(uint32_t code);
+void throw_windows_exception(uint32_t code, const std::string& error_message);
+void throw_windows_exception(uint32_t code, const char* error_message);
 
 }  // namespace wfb
 

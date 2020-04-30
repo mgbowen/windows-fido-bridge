@@ -21,7 +21,21 @@
 
 namespace wfb {
 
-WEBAUTHN_CREDENTIAL_ATTESTATION* create_credential(const wfb::cbor_map& parameters) {
+using unique_webauthn_credential_attestation_ptr =
+    std::unique_ptr<WEBAUTHN_CREDENTIAL_ATTESTATION, decltype(&WebAuthNFreeCredentialAttestation)>;
+
+auto make_unique_webauthn_credential_attestation_ptr(WEBAUTHN_CREDENTIAL_ATTESTATION* ptr) {
+    return unique_webauthn_credential_attestation_ptr(ptr, WebAuthNFreeCredentialAttestation);
+}
+
+using unique_webauthn_assertion_ptr =
+    std::unique_ptr<WEBAUTHN_ASSERTION, decltype(&WebAuthNFreeAssertion)>;
+
+auto make_unique_webauthn_assertion_ptr(WEBAUTHN_ASSERTION* ptr) {
+    return unique_webauthn_assertion_ptr(ptr, WebAuthNFreeAssertion);
+}
+
+unique_webauthn_credential_attestation_ptr create_credential(HWND window_handle, const wfb::cbor_map& parameters) {
     std::wstring relying_party_id = string_to_wide_string(parameters.at<std::string>("application"));
 
     WEBAUTHN_RP_ENTITY_INFORMATION entity_info = {
@@ -64,22 +78,35 @@ WEBAUTHN_CREDENTIAL_ATTESTATION* create_credential(const wfb::cbor_map& paramete
         .pwszHashAlgId = WEBAUTHN_HASH_ALGORITHM_SHA_256,
     };
 
-    WEBAUTHN_CREDENTIAL_ATTESTATION* credential_attestation = nullptr;
+    WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS options = {
+        .dwVersion = WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS_CURRENT_VERSION,
+    };
+
+    WEBAUTHN_CREDENTIAL_ATTESTATION* raw_credential_attestation = nullptr;
 
     auto result = WebAuthNAuthenticatorMakeCredential(
-        GetForegroundWindow(),
+        window_handle,
         &entity_info,
         &user_info,
         &cose_credential_parameters,
         &client_data,
-        nullptr,
-        &credential_attestation
+        &options,
+        &raw_credential_attestation
     );
+
+    auto credential_attestation = make_unique_webauthn_credential_attestation_ptr(
+        raw_credential_attestation
+    );
+
+    if (result != S_OK) {
+        std::string error_str = wide_string_to_string(WebAuthNGetErrorName(result));
+        throw_windows_exception(result, "Failed to make WebAuthN credential ({})"_format(error_str));
+    }
 
     return credential_attestation;
 }
 
-WEBAUTHN_ASSERTION* create_signature(const wfb::cbor_map& parameters) {
+unique_webauthn_assertion_ptr create_signature(HWND window_handle, const wfb::cbor_map& parameters) {
     byte_string message = parameters.at<byte_string>("message");
 
     auto client_data = WEBAUTHN_CLIENT_DATA{
@@ -110,15 +137,22 @@ WEBAUTHN_ASSERTION* create_signature(const wfb::cbor_map& parameters) {
 
     std::wstring relying_party_id = string_to_wide_string(parameters.at<std::string>("application"));
 
-    WEBAUTHN_ASSERTION* assertion = nullptr;
+    WEBAUTHN_ASSERTION* raw_assertion = nullptr;
 
     auto result = WebAuthNAuthenticatorGetAssertion(
-        GetForegroundWindow(),
+        window_handle,
         relying_party_id.c_str(),
         &client_data,
         &options,
-        &assertion
+        &raw_assertion
     );
+
+    auto assertion = make_unique_webauthn_assertion_ptr(raw_assertion);
+
+    if (result != S_OK) {
+        std::string error_str = wide_string_to_string(WebAuthNGetErrorName(result));
+        throw_windows_exception(result, "Failed to get WebAuthN assertion ({})"_format(error_str));
+    }
 
     return assertion;
 }
@@ -135,8 +169,12 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
     wfb::byte_vector raw_parameters = receive_message(read_fd);
     auto parameters = wfb::parse_cbor<cbor_map>(raw_parameters);
 
+    // TODO
+    HWND window_handle = GetForegroundWindow();
+
     if (parameters["type"] == "create") {
-        PCWEBAUTHN_CREDENTIAL_ATTESTATION raw_output = create_credential(parameters);
+        unique_webauthn_credential_attestation_ptr raw_output =
+            create_credential(window_handle, parameters);
 
         std::string attobj = {
             raw_output->pbAttestationObject,
@@ -156,7 +194,7 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
         auto raw_cbor_output = wfb::dump_cbor(output);
         send_message(write_fd, raw_cbor_output);
     } else if (parameters["type"] == "sign") {
-        PWEBAUTHN_ASSERTION assertion = create_signature(parameters);
+        unique_webauthn_assertion_ptr assertion = create_signature(window_handle, parameters);
 
         byte_string signature{assertion->pbSignature,
                               assertion->pbSignature + assertion->cbSignature};

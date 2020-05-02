@@ -10,8 +10,6 @@ Linux](https://docs.microsoft.com/en-us/windows/wsl/about).
 
 ## Install
 
-### Set up WSL2
-
 This package has been tested with the following setup:
 
 * Windows 10 version 2004 (>= build 19041)

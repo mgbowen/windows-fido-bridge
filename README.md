@@ -22,6 +22,9 @@ This package has been tested with the following setup:
   * YubiKey NEO
   * YubiKey 5 NFC
 
+Other execution environments or security keys may work, but have not been
+explicitly tested.
+
 ### Clone the repository
 
 ```

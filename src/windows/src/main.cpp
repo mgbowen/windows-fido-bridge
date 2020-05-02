@@ -1,3 +1,4 @@
+#include "webauthn_linking.hpp"
 #include "window.hpp"
 #include "windows_error.hpp"
 #include "windows_util.hpp"
@@ -20,9 +21,11 @@
 #include <system_error>
 #include <vector>
 
-using namespace wfb;
+namespace wfb {
 
 namespace {
+
+webauthn_methods webauthn = webauthn_methods::load();
 
 using unique_webauthn_assertion_ptr =
     std::unique_ptr<WEBAUTHN_ASSERTION, decltype(&WebAuthNFreeAssertion)>;
@@ -46,11 +49,11 @@ unique_webauthn_credential_attestation_ptr create_credential(
 unique_webauthn_assertion_ptr create_assertion(HWND window_handle, const cbor_map& parameters);
 
 auto make_unique_webauthn_credential_attestation_ptr(WEBAUTHN_CREDENTIAL_ATTESTATION* ptr) {
-    return unique_webauthn_credential_attestation_ptr(ptr, WebAuthNFreeCredentialAttestation);
+    return unique_webauthn_credential_attestation_ptr(ptr, webauthn.FreeCredentialAttestation);
 }
 
 auto make_unique_webauthn_assertion_ptr(WEBAUTHN_ASSERTION* ptr) {
-    return unique_webauthn_assertion_ptr(ptr, WebAuthNFreeAssertion);
+    return unique_webauthn_assertion_ptr(ptr, webauthn.FreeAssertion);
 }
 
 extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow) {
@@ -202,7 +205,7 @@ unique_webauthn_credential_attestation_ptr create_credential(
 
     WEBAUTHN_CREDENTIAL_ATTESTATION* raw_credential_attestation = nullptr;
 
-    auto result = WebAuthNAuthenticatorMakeCredential(
+    auto result = webauthn.AuthenticatorMakeCredential(
         window_handle,
         &entity_info,
         &user_info,
@@ -217,7 +220,7 @@ unique_webauthn_credential_attestation_ptr create_credential(
     );
 
     if (result != S_OK) {
-        std::string error_str = wide_string_to_string(WebAuthNGetErrorName(result));
+        std::string error_str = wide_string_to_string(webauthn.GetErrorName(result));
         throw_windows_exception(result, "Failed to make WebAuthN credential ({})"_format(error_str));
     }
 
@@ -257,7 +260,7 @@ unique_webauthn_assertion_ptr create_assertion(HWND window_handle, const wfb::cb
 
     WEBAUTHN_ASSERTION* raw_assertion = nullptr;
 
-    auto result = WebAuthNAuthenticatorGetAssertion(
+    auto result = webauthn.AuthenticatorGetAssertion(
         window_handle,
         relying_party_id.c_str(),
         &client_data,
@@ -268,7 +271,7 @@ unique_webauthn_assertion_ptr create_assertion(HWND window_handle, const wfb::cb
     auto assertion = make_unique_webauthn_assertion_ptr(raw_assertion);
 
     if (result != S_OK) {
-        std::string error_str = wide_string_to_string(WebAuthNGetErrorName(result));
+        std::string error_str = wide_string_to_string(webauthn.GetErrorName(result));
         throw_windows_exception(result, "Failed to get WebAuthN assertion ({})"_format(error_str));
     }
 
@@ -276,3 +279,5 @@ unique_webauthn_assertion_ptr create_assertion(HWND window_handle, const wfb::cb
 }
 
 }  // namespace
+
+}  // namespace wfb

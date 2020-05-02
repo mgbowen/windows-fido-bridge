@@ -1,0 +1,23 @@
+From c0dfd18dd1c2107c73d18f70cd164f7ebd434b08 Mon Sep 17 00:00:00 2001
+From: Damien Miller <djm@mindrot.org>
+Date: Fri, 1 May 2020 13:29:16 +1000
+Subject: [PATCH] wrap sha2.h inclusion in #ifdef HAVE_SHA2_H
+
+---
+ sk-usbhid.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sk-usbhid.c b/sk-usbhid.c
+index db6c0057e..25250824d 100644
+--- a/sk-usbhid.c
++++ b/sk-usbhid.c
+@@ -24,7 +24,9 @@
+ #include <stdio.h>
+ #include <stddef.h>
+ #include <stdarg.h>
++#ifdef HAVE_SHA2_H
+ #include <sha2.h>
++#endif
+ 
+ #ifdef WITH_OPENSSL
+ #include <openssl/opensslv.h>

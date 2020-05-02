@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -o errexit -o nounset -o xtrace
+
+cd /openssh-client/openssh-8.2p1/
+
+# Apply patches
+for patch_file in /openssh-client/patches/*; do
+    patch -p1 < "$patch_file"
+done
+
+debuild -b -uc -us
+
+cp -a ../*.deb /build

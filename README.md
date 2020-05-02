@@ -1,12 +1,32 @@
 # windows-fido-bridge
 
+This repository implements [an OpenSSH SK
+middleware](https://github.com/openssh/openssh-portable/blob/e9dc9863723e111ae05e353d69df857f0169544a/PROTOCOL.u2f)
+that allows you to use [a FIDO/U2F security
+key](https://en.wikipedia.org/wiki/Universal_2nd_Factor) (for example, [a
+YubiKey](https://www.yubico.com/products/)) to SSH into a remote server from a
+machine running Windows 10 via [Windows Subsystem for
+Linux](https://docs.microsoft.com/en-us/windows/wsl/about).
+
 ## Install
+
+### Set up WSL2
+
+This package has been tested with the following setup:
+
+* Windows 10 version 2004 (>= build 19041)
+* Debian 10.0 "buster" running via [Windows Subsystem for Linux (WSL)
+  2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-install)
+* One of the following security keys:
+  * YubiKey 4
+  * YubiKey NEO
+  * YubiKey 5 NFC
 
 ### Clone the repository
 
 ```
 cd ~
-git clone git@github.com:mgbowen/windows-fido-bridge.git
+git clone https://github.com/mgbowen/windows-fido-bridge.git
 ```
 
 ### Build openssh-client from source
@@ -24,7 +44,12 @@ changes can be propagated into an official release, you must build the OpenSSH
 client from source.
 
 To build an OpenSSH client with the required API changes, you can use a
-Dockerfile provided by this package with the following commands:
+Dockerfile provided by this package. You'll need a Docker Desktop version with
+WSL2 support installed for Docker to work inside your WSL2 distro; currently,
+that's Docker Desktop for Windows (Edge), see
+[here](https://hub.docker.com/editions/community/docker-ce-desktop-windows).
+
+Once Docker is working, use the following to build and install OpenSSH:
 
 ```
 # Or wherever you cloned the repository
@@ -40,8 +65,8 @@ sudo dpkg -i openssh-client_8.2p1-4_amd64.deb
 ```
 
 **Note that this may result in your SSH client breaking in strange and/or
-mysterious ways!** I will not be held responsible if you, for example, need to
-reinstall your Debian installation.
+mysterious ways!** I will not be held responsible if you, for example, end up
+needing to recreate your WSL2 Debian installation.
 
 (Optional) You can clean up created the Docker image with the following command:
 
@@ -50,9 +75,6 @@ docker rmi windows-fido-bridge-openssh-client
 ```
 
 ### Build windows-fido-bridge from source
-
-Currently, this package is tested using Debian "buster" via WSL2 on Windows 10
-version 2004 (build 19041).
 
 To build from source:
 

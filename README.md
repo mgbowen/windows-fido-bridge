@@ -32,6 +32,10 @@ git clone https://github.com/mgbowen/windows-fido-bridge.git
 
 ### Build openssh-client from source
 
+**Note that the following may result in your Debian installation breaking in
+strange and/or mysterious ways!** I will not be held responsible if you end up
+needing to recreate your WSL2 Debian installation.
+
 Unfortunately, the SK API that OpenSSH provides is not directly compatible with
 Windows' WebAuthN API; specifically, when obtaining an assertion with a
 previously-made credential, OpenSSH provides SK middlewares with a challenge
@@ -62,12 +66,51 @@ docker build -t windows-fido-bridge-openssh-client .
 mkdir build
 cd build
 docker run --rm -it -v "$(pwd):/build" windows-fido-bridge-openssh-client /openssh-client/build-package
-sudo dpkg -i openssh-client_8.2p1-4_amd64.deb
 ```
 
-**Note that this may result in your SSH client breaking in strange and/or
-mysterious ways!** I will not be held responsible if you, for example, end up
-needing to recreate your WSL2 Debian installation.
+Then, you'll need to source libfido from the Debian "bullseye" repositories,
+which you can do by running the following commands:
+
+```
+cat << EOF | sudo tee /etc/apt/preferences.d/package-libfido2.pref > /dev/null
+Package: libfido2-1
+Pin: release a=bullseye
+Pin-Priority: 980
+
+Package: libfido2-1
+Pin: release a=bullseye-security
+Pin-Priority: 990
+
+Package: *
+Pin: release a=bullseye
+Pin-Priority: 200
+
+Package: *
+Pin: release a=testing
+Pin-Priority: 200
+
+Package: *
+Pin: release a=bullseye-security
+Pin-Priority: 210
+
+Package: *
+Pin: release a=testing-security
+Pin-Priority: 210
+EOF
+
+cat << EOF | sudo tee /etc/apt/sources.list.d/bullseye.list > /dev/null
+deb http://deb.debian.org/debian bullseye main
+deb http://security.debian.org/debian-security bullseye-security main
+EOF
+
+sudo apt update
+```
+
+Finally, install your custom-built OpenSSH client:
+
+```
+sudo apt install ./openssh-client_8.2p1-4_amd64.deb
+```
 
 (Optional) You can clean up created the Docker image with the following command:
 
@@ -88,6 +131,7 @@ mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j $(nproc)
+make test
 sudo make install
 ```
 

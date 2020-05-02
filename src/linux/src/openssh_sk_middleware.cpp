@@ -156,7 +156,7 @@ fido_signature parse_fido_signature(const byte_string& buffer) {
 }
 
 /* Sign a challenge */
-int sk_sign(uint32_t alg, const uint8_t *message, size_t message_len,
+int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
             const char *application, const uint8_t *key_handle, size_t key_handle_len,
             uint8_t flags, const char *pin, struct sk_option **options,
             struct sk_sign_response **sign_response) {
@@ -167,7 +167,7 @@ int sk_sign(uint32_t alg, const uint8_t *message, size_t message_len,
 
     wfb::cbor_map parameters = {
         {"type", "sign"},
-        {"message", byte_string{message, message + message_len}},
+        {"message", byte_string{data, data + datalen}},
         {"application", application},
         {"key_handle", byte_string{key_handle, key_handle + key_handle_len}},
     };

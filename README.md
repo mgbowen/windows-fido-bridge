@@ -43,6 +43,7 @@ EOF
 sudo apt update
 sudo apt upgrade
 sudo apt full-upgrade
+sudo apt autoremove --purge
 ```
 
 Finally, upgrade your version of openssh-client to the one from sid:
@@ -65,7 +66,7 @@ Pin-Priority: 990
 EOF
 
 sudo apt update
-sudo apt upgrade
+sudo apt install openssh-client
 ```
 
 Pulling openssh-client from sid is temporary until the package moves into
@@ -82,7 +83,7 @@ sudo apt update
 To build from source:
 
 ```
-sudo apt install build-essential cmake g++-mingw-w64-x86-64 libfmt-dev libgtest-dev
+sudo apt install build-essential cmake g++-mingw-w64-x86-64 git libfmt-dev libgtest-dev
 
 git clone https://github.com/mgbowen/windows-fido-bridge.git
 cd windows-fido-bridge

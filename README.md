@@ -13,7 +13,7 @@ Linux](https://docs.microsoft.com/en-us/windows/wsl/about).
 This package has been tested with the following setup:
 
 * Windows 10 version 2004 (>= build 19041)
-* Debian 10.0 "buster" running via [Windows Subsystem for Linux (WSL)
+* Debian 11 (bullseye) running via [Windows Subsystem for Linux (WSL)
   2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-install)
 * One of the following security keys:
   * YubiKey 4
@@ -23,99 +23,58 @@ This package has been tested with the following setup:
 Other execution environments or security keys may work, but have not been
 explicitly tested.
 
-### Clone the repository
+### Install Debian bullseye
+
+Debian 10, the current release available in the Microsoft Store, does not have a
+version of OpenSSH that's new enough to support FIDO keys. To get a version that
+is new enough, you need to upgrade your base system to Debian 11 (bullseye). You
+then need to install openssh-client from Debian sid to get the most recent
+version.
+
+To do that, install Debian from the Microsoft Store. Then, run the following
+commands to upgrade your installation to bullseye:
 
 ```
-cd ~
-git clone https://github.com/mgbowen/windows-fido-bridge.git
-```
-
-### Build openssh-client from source
-
-**Note that the following may result in your Debian installation breaking in
-strange and/or mysterious ways!** I will not be held responsible if you end up
-needing to recreate your WSL2 Debian installation.
-
-Unfortunately, the SK API that OpenSSH provides is not directly compatible with
-Windows' WebAuthN API; specifically, when obtaining an assertion with a
-previously-made credential, OpenSSH provides SK middlewares with a challenge
-string that has already been SHA256 hashed, whereas Windows requires that you
-provide it the preimage of that challenge string which is then hashed by the
-WebAuthN API before being passed to the security key. There are API changes in
-OpenSSH master (see
-[commit](https://github.com/openssh/openssh-portable/commit/59d2de956ed29aa5565ed5e5947a7abdb27ac013),
-among others) that pass the preimage instead of the hash, but until those
-changes can be propagated into an official release, you must build the OpenSSH
-client from source.
-
-To build an OpenSSH client with the required API changes, you can use a
-Dockerfile provided by this package. You'll need a Docker Desktop version with
-WSL2 support installed for Docker to work inside your WSL2 distro; currently,
-that's Docker Desktop for Windows (Edge), see
-[here](https://hub.docker.com/editions/community/docker-ce-desktop-windows).
-
-Once Docker is working, use the following to build and install OpenSSH:
-
-```
-# Or wherever you cloned the repository
-cd ~/windows-fido-bridge
-
-cd openssh-client
-docker build -t windows-fido-bridge-openssh-client .
-
-mkdir build
-cd build
-docker run --rm -it -v "$(pwd):/build" windows-fido-bridge-openssh-client /openssh-client/build-package
-```
-
-Then, you'll need to source libfido from the Debian "bullseye" repositories,
-which you can do by running the following commands:
-
-```
-cat << EOF | sudo tee /etc/apt/preferences.d/package-libfido2.pref > /dev/null
-Package: libfido2-1
-Pin: release a=bullseye
-Pin-Priority: 980
-
-Package: libfido2-1
-Pin: release a=bullseye-security
-Pin-Priority: 990
-
-Package: *
-Pin: release a=bullseye
-Pin-Priority: 200
-
-Package: *
-Pin: release a=testing
-Pin-Priority: 200
-
-Package: *
-Pin: release a=bullseye-security
-Pin-Priority: 210
-
-Package: *
-Pin: release a=testing-security
-Pin-Priority: 210
-EOF
-
-cat << EOF | sudo tee /etc/apt/sources.list.d/bullseye.list > /dev/null
+cat << EOF | sudo tee /etc/apt/sources.list > /dev/null
 deb http://deb.debian.org/debian bullseye main
 deb http://security.debian.org/debian-security bullseye-security main
 EOF
 
 sudo apt update
+sudo apt upgrade
+sudo apt full-upgrade
 ```
 
-Finally, install your custom-built OpenSSH client:
+Finally, upgrade your version of openssh-client to the one from sid:
 
 ```
-sudo apt install ./openssh-client_8.2p1-4_amd64.deb
+cat << EOF | sudo tee /etc/apt/sources.list.d/sid.list > /dev/null
+deb http://deb.debian.org/debian sid main
+EOF
+
+cat << EOF | sudo tee /etc/apt/preferences.d/sid.pref > /dev/null
+Package: *
+Pin: release n=sid
+Pin-Priority: 50
+EOF
+
+cat << EOF | sudo tee /etc/apt/preferences.d/openssh-client.pref > /dev/null
+Package: openssh-client
+Pin: release n=sid
+Pin-Priority: 990
+EOF
+
+sudo apt update
+sudo apt upgrade
 ```
 
-(Optional) You can clean up created the Docker image with the following command:
+Pulling openssh-client from sid is temporary until the package moves into
+bullseye. Once it's available, you can remove the changes made above with the
+following commands:
 
 ```
-docker rmi windows-fido-bridge-openssh-client
+sudo rm /etc/apt/sources.list.d/sid.list /etc/apt/preferences.d/{sid,openssh-client}.pref
+sudo apt update
 ```
 
 ### Build windows-fido-bridge from source
@@ -125,8 +84,8 @@ To build from source:
 ```
 sudo apt install build-essential cmake g++-mingw-w64-x86-64 libfmt-dev libgtest-dev
 
-# Or wherever you cloned the repository
-cd ~/windows-fido-bridge
+git clone https://github.com/mgbowen/windows-fido-bridge.git
+cd windows-fido-bridge
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..

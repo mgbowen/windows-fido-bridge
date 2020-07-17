@@ -27,9 +27,7 @@ explicitly tested.
 
 Debian 10, the current release available in the Microsoft Store, does not have a
 version of OpenSSH that's new enough to support FIDO keys. To get a version that
-is new enough, you need to upgrade your base system to Debian 11 (bullseye). You
-then need to install openssh-client from Debian sid to get the most recent
-version.
+is new enough, you need to upgrade your base system to Debian 11 (bullseye).
 
 To do that, install Debian from the Microsoft Store. Then, run the following
 commands to upgrade your installation to bullseye:
@@ -46,32 +44,9 @@ sudo apt full-upgrade
 sudo apt autoremove --purge
 ```
 
-Finally, upgrade your version of openssh-client to the one from sid:
-
-```
-cat << EOF | sudo tee /etc/apt/sources.list.d/sid.list > /dev/null
-deb http://deb.debian.org/debian sid main
-EOF
-
-cat << EOF | sudo tee /etc/apt/preferences.d/sid.pref > /dev/null
-Package: *
-Pin: release n=sid
-Pin-Priority: 50
-EOF
-
-cat << EOF | sudo tee /etc/apt/preferences.d/openssh-client.pref > /dev/null
-Package: openssh-client
-Pin: release n=sid
-Pin-Priority: 990
-EOF
-
-sudo apt update
-sudo apt install openssh-client
-```
-
-Pulling openssh-client from sid is temporary until the package moves into
-bullseye. Once it's available, you can remove the changes made above with the
-following commands:
+Pulling openssh-client from sid was temporarily needed until the package moved
+into bullseye. You can remove the changes you had made with the following
+commands:
 
 ```
 sudo rm /etc/apt/sources.list.d/sid.list /etc/apt/preferences.d/{sid,openssh-client}.pref

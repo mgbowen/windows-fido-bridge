@@ -94,8 +94,8 @@ You should now be logged in to your remote server!
 
 ### ssh-agent
 
-If you want to use a security key-backed key with `ssh-agent`, you should make
-sure to either invoke `ssh-add` with the `-S` argument pointing to your
+If you want to use a security key-backed SSH key with `ssh-agent`, you should
+make sure to either invoke `ssh-add` with the `-S` argument pointing to your
 windows-fido-bridge library or set the `SSH_SK_PROVIDER` environment variable
 before calling `ssh-add`. For example:
 
@@ -114,7 +114,7 @@ You may find the second way easier if you place the `SSH_SK_PROVIDER` in your
 
 * [Web Authentication: An API for accessing Public Key Credentials, Level
   1](https://www.w3.org/TR/webauthn/)
-  * The official W3C WebAuthN specification. Microsoft's API seems to be largely
+  * The official W3C WebAuthn specification. Microsoft's API seems to be largely
     based directly on this document.
 * [U2F support in OpenSSH
   HEAD](https://marc.info/?l=openssh-unix-dev&m=157259802529972&w=2)

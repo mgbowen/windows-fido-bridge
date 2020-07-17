@@ -92,6 +92,24 @@ ssh -oSecurityKeyProvider=/usr/local/lib/libwindowsfidobridge.so remote-server
 
 You should now be logged in to your remote server!
 
+### ssh-agent
+
+If you want to use a security key-backed key with `ssh-agent`, you should make
+sure to either invoke `ssh-add` with the `-S` argument pointing to your
+windows-fido-bridge library or set the `SSH_SK_PROVIDER` environment variable
+before calling `ssh-add`. For example:
+
+```
+ssh-add -S /usr/local/lib/libwindowsfidobridge.so
+
+# or
+
+SSH_SK_PROVIDER=/usr/local/lib/libwindowsfidobridge.so ssh-add
+```
+
+You may find the second way easier if you place the `SSH_SK_PROVIDER` in your
+`.bashrc` or whatever your shell's equivalent file is.
+
 ## References
 
 * [Web Authentication: An API for accessing Public Key Credentials, Level

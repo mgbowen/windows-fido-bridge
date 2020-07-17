@@ -201,6 +201,11 @@ unique_webauthn_credential_attestation_ptr create_credential(
 
     WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS options = {
         .dwVersion = WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS_CURRENT_VERSION,
+        .dwUserVerificationRequirement = static_cast<DWORD>(
+            parameters.at<bool>("user_verification_required")
+                ? WEBAUTHN_USER_VERIFICATION_REQUIREMENT_REQUIRED
+                : WEBAUTHN_USER_VERIFICATION_REQUIREMENT_DISCOURAGED
+        ),
     };
 
     WEBAUTHN_CREDENTIAL_ATTESTATION* raw_credential_attestation = nullptr;
@@ -254,6 +259,11 @@ unique_webauthn_assertion_ptr create_assertion(HWND window_handle, const wfb::cb
             .cCredentials = static_cast<DWORD>(credentials_arr.size()),
             .pCredentials = credentials_arr.data(),
         },
+        .dwUserVerificationRequirement = static_cast<DWORD>(
+            parameters.at<bool>("user_verification_required")
+                ? WEBAUTHN_USER_VERIFICATION_REQUIREMENT_REQUIRED
+                : WEBAUTHN_USER_VERIFICATION_REQUIREMENT_DISCOURAGED
+        ),
     };
 
     std::wstring relying_party_id = string_to_wide_string(parameters.at<std::string>("application"));

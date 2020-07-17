@@ -36,6 +36,10 @@ std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
     return calloc_from_data(buffer.data(), buffer.size());
 }
 
+bool is_user_verification_required_flag_set(uint8_t flags) {
+    return (flags & SSH_SK_USER_VERIFICATION_REQD) == SSH_SK_USER_VERIFICATION_REQD;
+}
+
 }  // namespace
 
 extern "C" {
@@ -58,6 +62,7 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
         {"type", "create"},
         {"challenge", byte_string{challenge, challenge + challenge_len}},
         {"application", application},
+        {"user_verification_required", is_user_verification_required_flag_set(flags)},
     };
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
@@ -170,6 +175,7 @@ int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
         {"message", byte_string{data, data + datalen}},
         {"application", application},
         {"key_handle", byte_string{key_handle, key_handle + key_handle_len}},
+        {"user_verification_required", is_user_verification_required_flag_set(flags)},
     };
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));

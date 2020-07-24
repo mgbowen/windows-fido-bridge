@@ -8,6 +8,19 @@ YubiKey](https://www.yubico.com/products/)) to SSH into a remote server from a
 machine running Windows 10 via [Windows Subsystem for
 Linux](https://docs.microsoft.com/en-us/windows/wsl/about).
 
+## Requirements
+
+At a minimum, you must have the following in order to use this package:
+
+* A local Linux distribution running inside WSL with OpenSSH 8.3 or newer
+  installed.
+  * An earlier version of OpenSSH will not work because of an incompatibility
+    with Microsoft's WebAuthn API.
+* A remote server running OpenSSH 8.2 or newer.
+  * The aforementioned API incompatibility with Microsoft's WebAuthn API does
+    not affect the remote server, so it **does not** need OpenSSH 8.3.
+* A FIDO/U2F security key.
+
 ## Install
 
 This package has been tested with the following setup:

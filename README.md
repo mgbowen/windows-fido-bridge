@@ -92,7 +92,7 @@ make package
 sudo apt install ./windows-fido-bridge_*_*.deb
 ```
 
-Note that if you install the deb package, it will place the built binaries in
+Note that if you install the deb package, apt will place the built binaries in
 `/usr/lib`, whereas `make install` will place them, by default, in
 `/usr/local/lib`. The distinction is important to remember when you set the
 `SecurityKeyProvider` option when calling `ssh` or the `SSH_SK_PROVIDER`
@@ -142,7 +142,7 @@ You may also completely omit the explicit library specification if you place the
 `SSH_SK_PROVIDER` environment variable definition in your `.bashrc` or whatever
 your shell's equivalent file is.
 
-## Using from Windows
+### Using from Windows
 
 If you want to be able to run `ssh` from a Windows command prompt without first
 being in a WSL prompt, you can create a directory somewhere on your Windows
@@ -156,10 +156,9 @@ following contents:
 
 If the WSL distribution you installed windows-fido-bridge in is not your
 default, be sure to pass the `--distribution` argument to `wsl` specifying the
-name of the appropriate distribution.
-
-Make sure you don't have the Microsoft-distributed OpenSSH client installed or
-that one may be used instead of the WSL one.
+name of the appropriate distribution. Also be sure that you don't have the
+Microsoft-distributed OpenSSH client installed or that one may be used instead
+of the WSL one.
 
 ## References
 

@@ -33,4 +33,5 @@ target_compile_definitions(${PROJECT_NAME}
 install(TARGETS ${PROJECT_NAME}
     # Override this, it's not intended to be executed directly
     RUNTIME DESTINATION lib
+    COMPONENT "${WINDOWS_TARGET_COMPONENT_NAME}"
 )

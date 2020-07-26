@@ -13,11 +13,13 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-    cbor
-    common
+    PRIVATE
+        cbor common
 
-    -static-libgcc
-    -static-libstdc++
+        spdlog
+
+        # Use static libraries wherever possible to make distribution easier.
+        -static
 )
 
 target_compile_definitions(${PROJECT_NAME}

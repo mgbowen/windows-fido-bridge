@@ -70,7 +70,7 @@ sudo apt update
 ### Build from source
 
 ```
-sudo apt install build-essential cmake g++-mingw-w64-x86-64 git libfmt-dev libgtest-dev
+sudo apt install build-essential cmake g++-mingw-w64-x86-64 git
 
 git clone https://github.com/mgbowen/windows-fido-bridge.git
 cd windows-fido-bridge

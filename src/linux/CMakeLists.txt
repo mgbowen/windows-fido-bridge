@@ -15,7 +15,7 @@ target_link_libraries(${PROJECT_NAME}
     cbor
     common
 
-    fmt::fmt
+    fmt
 
     # GCC 8 std::filesystem support
     stdc++fs

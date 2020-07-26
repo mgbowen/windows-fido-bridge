@@ -25,7 +25,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
         common
 
-        fmt::fmt
+        fmt
 )
 
 set_property(TARGET ${PROJECT_NAME}
@@ -35,7 +35,11 @@ set_property(TARGET ${PROJECT_NAME}
 #
 # Tests
 #
-if (TARGET GTest::GTest)
+
+# Only build tests if we're not cross-compiling or if we're running under WSL;
+# in the case of the latter, the cross-compiled artifacts can be run directly
+# on the build machine.
+if (BUILD_TESTS AND (NOT MINGW OR WSL))
     set(test_target ${PROJECT_NAME}_tests)
     add_executable(${test_target}
         test/test_array.cpp
@@ -48,8 +52,7 @@ if (TARGET GTest::GTest)
     target_link_libraries(${test_target}
         ${PROJECT_NAME}
 
-        GTest::GTest
-        GTest::Main
+        gtest gtest_main
     )
 
     gtest_discover_tests(${test_target})

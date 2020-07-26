@@ -23,51 +23,25 @@ At a minimum, you must have the following in order to use this repository:
 
 ## Install
 
-This repository has been tested with the following setup:
+You may want to visit [the
+wiki](https://github.com/mgbowen/windows-fido-bridge/wiki/Installing-a-distro-with-OpenSSH-8.3)
+that details how to get a Linux distro with a version of OpenSSH that's new
+enough to work with windows-fido-bridge.
 
-* Windows 10 version 2004 (>= build 19041)
-* Debian 11 (bullseye) running via [Windows Subsystem for Linux (WSL)
-  2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-install)
-* One of the following security keys:
-  * YubiKey 4
-  * YubiKey NEO
-  * YubiKey 5 NFC
+### From apt repository
 
-Other execution environments or security keys may work, but have not been
-explicitly tested.
-
-### Install Debian bullseye
-
-Debian 10, the current release available in the Microsoft Store, does not have a
-version of OpenSSH that's new enough to support FIDO keys. To get a version that
-is new enough, you need to upgrade your base system to Debian 11 (bullseye).
-
-To do that, install Debian from the Microsoft Store, then run the following
-commands to upgrade your installation to bullseye:
+The recommended method of installing windows-fido-bridge is to use its apt
+repository at [apt.mgbowen.dev](https://apt.mgbowen.dev). Go to that link and
+follow its instructions to set up access to the repository for your operating
+system, then run the following:
 
 ```
-sudo mv /etc/apt/sources.list /etc/apt/sources.list.orig
-cat << EOF | sudo tee /etc/apt/sources.list > /dev/null
-deb http://deb.debian.org/debian bullseye main
-deb http://security.debian.org/debian-security bullseye-security main
-EOF
-
-sudo apt update
-sudo apt upgrade
-sudo apt full-upgrade
-sudo apt autoremove --purge
+sudo apt install windows-fido-bridge
 ```
 
-Pulling openssh-client from sid was previously needed, but the package has since
-moved directly into bullseye. You can remove the changes you had made with the
-following commands:
+### From source
 
-```
-sudo rm /etc/apt/sources.list.d/sid.list /etc/apt/preferences.d/{sid,openssh-client}.pref
-sudo apt update
-```
-
-### Build from source
+You can also build this repository from source:
 
 ```
 sudo apt install build-essential cmake g++-mingw-w64-x86-64 git
@@ -105,7 +79,7 @@ To do that, you need to tell OpenSSH what middleware library to use. If you used
 the installation instructions above, you can use the following command:
 
 ```
-SSH_SK_PROVIDER=/usr/local/lib/libwindowsfidobridge.so ssh-keygen -t ecdsa-sk
+SSH_SK_PROVIDER=libwindowsfidobridge.so ssh-keygen -t ecdsa-sk
 ```
 
 If everything goes well, you should see a Windows dialog pop up asking you to
@@ -115,7 +89,7 @@ to your remote server's `.ssh/authorized_keys` file, you can then authenticate
 using the following command:
 
 ```
-ssh -oSecurityKeyProvider=/usr/local/lib/libwindowsfidobridge.so remote-server
+ssh -oSecurityKeyProvider=libwindowsfidobridge.so remote-server
 ```
 
 You should now be logged in to your remote server!
@@ -131,11 +105,11 @@ before calling `ssh-add`. Note that you **must** specify the full path to the
 library when passing it to `ssh-add` for `ssh-agent` to accept it. For example:
 
 ```
-ssh-add -S /usr/local/lib/libwindowsfidobridge.so
+ssh-add -S /usr/lib/libwindowsfidobridge.so
 
 # or
 
-SSH_SK_PROVIDER=/usr/local/lib/libwindowsfidobridge.so ssh-add
+SSH_SK_PROVIDER=/usr/lib/libwindowsfidobridge.so ssh-add
 ```
 
 You may also completely omit the explicit library specification if you place the

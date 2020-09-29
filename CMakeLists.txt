@@ -5,6 +5,13 @@ option(BUILD_LINUX_TARGET "Build the Linux OpenSSH middleware library" ON)
 option(BUILD_WINDOWS_TARGET "Build the Windows WebAuthN API bridge executable" ON)
 option(BUILD_TESTS "Build tests" ON)
 
+# Configurable OpenSSH security key API version
+set(SK_API_VERSION 5 CACHE STRING "OpenSSH security key API version to target")
+list(APPEND valid_sk_api_versions 5 7)
+if (NOT SK_API_VERSION IN_LIST valid_sk_api_versions)
+    message(FATAL_ERROR "Unrecognized OpenSSH security key API version \"${SK_API_VERSION}\"")
+endif()
+
 # Used to prevent two copies of the Windows bridge executable from being
 # included in a CPack package.
 #

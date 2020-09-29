@@ -17,6 +17,7 @@ extern "C" {
 
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 
 #include <sys/wait.h>
@@ -38,6 +39,11 @@ std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
 
 bool is_user_verification_required_flag_set(uint8_t flags) {
     return (flags & SSH_SK_USER_VERIFICATION_REQD) == SSH_SK_USER_VERIFICATION_REQD;
+}
+
+bool is_user_verification_required(uint8_t flags) {
+    const char* force_env_var = std::getenv("WINDOWS_FIDO_BRIDGE_FORCE_USER_VERIFICATION");
+    return (force_env_var != nullptr) || is_user_verification_required_flag_set(flags);
 }
 
 }  // namespace
@@ -62,6 +68,11 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
         {"type", "create"},
         {"challenge", byte_string{challenge, challenge + challenge_len}},
         {"application", application},
+
+        // Explicitly only check the flag provided by OpenSSH (and not the force
+        // environment variable) so the user doesn't accidentally create keys
+        // that require user verification without them specifying it explicitly
+        // on ssh-keygen's command line.
         {"user_verification_required", is_user_verification_required_flag_set(flags)},
     };
 
@@ -88,6 +99,12 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
 
     std::tie(response->signature, response->signature_len) = calloc_from_data(signature);
     std::tie(response->attestation_cert, response->attestation_cert_len) = calloc_from_data(x5c);
+
+#if WFB_SK_API_VERSION == 7
+    // TODO: provide the raw CBOR-encoded attestation data from the security key
+    response->authdata = nullptr;
+    response->authdata_len = 0;
+#endif
 
     *enroll_response = response;
     return 0;
@@ -175,7 +192,7 @@ int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
         {"message", byte_string{data, data + datalen}},
         {"application", application},
         {"key_handle", byte_string{key_handle, key_handle + key_handle_len}},
-        {"user_verification_required", is_user_verification_required_flag_set(flags)},
+        {"user_verification_required", is_user_verification_required(flags)},
     };
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));

@@ -42,7 +42,6 @@ endif()
 include(GoogleTest)
 
 add_subdirectory(src/common)
-add_subdirectory(src/cbor)
 
 if (BUILD_LINUX_TARGET AND BUILD_WINDOWS_TARGET)
     add_subdirectory(src/linux)

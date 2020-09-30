@@ -27,10 +27,7 @@ target_compile_definitions(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-    cbor
-    common
-
-    fmt
+    common fmt
 
     # GCC 8 std::filesystem support
     stdc++fs

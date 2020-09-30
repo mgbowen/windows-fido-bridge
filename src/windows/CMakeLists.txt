@@ -14,9 +14,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        cbor common
-
-        spdlog
+        common spdlog
 
         # Use static libraries wherever possible to make distribution easier.
         -static

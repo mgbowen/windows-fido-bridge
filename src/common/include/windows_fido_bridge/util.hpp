@@ -3,7 +3,10 @@
 #include <windows_fido_bridge/types.hpp>
 
 #include <cstdint>
+#include <optional>
+#include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 
 namespace wfb {
@@ -43,14 +46,27 @@ constexpr bool is_explicitly_convertible =
     std::is_constructible_v<remove_cvref_t<T>, remove_cvref_t<U>> &&
         ! std::is_convertible_v<remove_cvref_t<T>, remove_cvref_t<U>>;
 
-void dump_binary(const uint8_t* buffer, size_t length, size_t indent = 0);
+void dump_binary(std::stringstream& ss, const uint8_t* buffer, size_t length, size_t indent = 0);
 
-inline void dump_binary(const byte_vector& binary, size_t indent = 0) {
-    dump_binary(reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
+inline void dump_binary(std::stringstream& ss, const byte_vector& binary, size_t indent = 0) {
+    dump_binary(ss, reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
 }
 
-inline void dump_binary(const std::string& binary, size_t indent = 0) {
-    dump_binary(reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
+inline void dump_binary(std::stringstream& ss, const std::string& binary, size_t indent = 0) {
+    dump_binary(ss, reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
 }
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size);
+std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size);
+std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer);
+std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer);
+
+template <size_t N>
+std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
+    return calloc_from_data(buffer.data(), buffer.size());
+}
+
+std::optional<std::string> get_environment_variable(const std::string& variable_name);
+std::optional<std::string> get_environment_variable(const char* variable_name);
 
 }  // namespace wfb

@@ -11,7 +11,7 @@ template <typename T> void test_integer_roundtrip(T value);
 
 template <typename T>
 void test_integer(uint8_t type_byte, T expected_value) {
-    std::array<uint8_t, sizeof(T) + 1> expected_bytes{};
+    wfb::byte_array<sizeof(T) + 1> expected_bytes{};
     expected_bytes[0] = type_byte;
 
     wfb::integer_to_be_bytes_into(expected_bytes.data() + 1, expected_value);
@@ -73,7 +73,7 @@ TEST(CBOR, NonNegativeIntegers) {
     // Integers up to 16-bit are small enough to just brute-force test every
     // possible value
     for (uint64_t num = 0; num < 24; num++) {
-        std::array<uint8_t, 1> bytes{static_cast<uint8_t>(num)};
+        wfb::byte_array<1> bytes{static_cast<uint8_t>(num)};
         auto actual_value = wfb::parse_cbor<uint16_t>(bytes);
         ASSERT_EQ(actual_value, num);
     }
@@ -116,7 +116,7 @@ void test_negative_integer(uint8_t type_byte, __int128 value) {
     ASSERT_EQ(type_byte >> 5, 1);
     ASSERT_LT(value, 0);
 
-    std::array<uint8_t, N + 1> bytes{};
+    wfb::byte_array<N + 1> bytes{};
     bytes[0] = type_byte;
 
     uint64_t positive_representation = (value * -1) - 1;
@@ -145,7 +145,7 @@ TEST(CBOR, NegativeIntegers) {
     // Integers up to 16-bit are small enough to just brute-force test every
     // possible value
     for (int64_t num = -24; num < 0; num++) {
-        std::array<uint8_t, 1> bytes{static_cast<uint8_t>(0b00100000 | std::abs(num) - 1)};
+        wfb::byte_array<1> bytes{static_cast<uint8_t>(0b00100000 | std::abs(num) - 1)};
         auto actual_value = wfb::parse_cbor<int8_t>(bytes);
         ASSERT_EQ(actual_value, num);
     }

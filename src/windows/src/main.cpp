@@ -97,7 +97,7 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
 
     // Wait for the created thread to exit; in the meantime, run the window's
     // message loop
-    win.wait_handle(thread_handle);
+    win.run_message_loop(thread_handle);
 
     // Thread is complete, close the window and wait for the message loop to
     // stop
@@ -111,7 +111,7 @@ DWORD WINAPI handle_bridge_request(const handle_bridge_request_parameters& handl
     wfb::byte_vector raw_request_parameters = receive_message(handle_params.read_fd);
     auto request_parameters = wfb::parse_cbor<cbor_map>(raw_request_parameters);
 
-    if (request_parameters["type"] == "create") {
+    if (request_parameters.at("type") == "create") {
         unique_webauthn_credential_attestation_ptr raw_output =
             create_credential(handle_params.hwnd, request_parameters);
 
@@ -132,7 +132,7 @@ DWORD WINAPI handle_bridge_request(const handle_bridge_request_parameters& handl
 
         auto raw_cbor_output = wfb::dump_cbor(output);
         send_message(handle_params.write_fd, raw_cbor_output);
-    } else if (request_parameters["type"] == "sign") {
+    } else if (request_parameters.at("type") == "sign") {
         unique_webauthn_assertion_ptr assertion = create_assertion(handle_params.hwnd, request_parameters);
 
         byte_string signature{assertion->pbSignature,

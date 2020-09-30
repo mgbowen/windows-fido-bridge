@@ -64,15 +64,7 @@ void window::show_window() {
     SetForegroundWindow(_hwnd);
 }
 
-void window::run_message_loop() {
-    _run_message_loop(std::nullopt);
-}
-
-void window::wait_handle(HANDLE handle) {
-    _run_message_loop(handle);
-}
-
-void window::_run_message_loop(std::optional<HANDLE> wait_handle) {
+void window::run_message_loop(std::optional<HANDLE> wait_handle) {
     // Based on https://devblogs.microsoft.com/oldnewthing/20050217-00/?p=36423
     while (true) {
         std::vector<HANDLE> wait_handles;

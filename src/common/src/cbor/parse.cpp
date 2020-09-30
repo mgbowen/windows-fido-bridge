@@ -31,6 +31,15 @@ cbor_value parse_cbor_from_reader(binary_reader& reader) {
         case CBOR_MAP: {
             return cbor_map{reader};
         }
+        case CBOR_EVERYTHING_ELSE: {
+            uint8_t value = initial_byte & 0b00011111;
+            switch (value) {
+                case CBOR_VALUE_NULL: {
+                    reader.read_uint8_t();  // Consume the value
+                    return cbor_null{};
+                }
+            }
+        }
     }
 
     throw std::runtime_error("Unrecognized CBOR type {} at byte {}"_format(type, reader.index()));

@@ -2,6 +2,7 @@
 
 #include <windows_fido_bridge/binary_io.hpp>
 #include <windows_fido_bridge/cbor.hpp>
+#include <windows_fido_bridge/types.hpp>
 #include <windows_fido_bridge/util.hpp>
 
 #include <array>
@@ -47,6 +48,16 @@ struct authenticator_data {
     }
 
     void dump() const;
+};
+
+struct fido_signature {
+    byte_array<32> sig_r;
+    byte_array<32> sig_s;
+
+    static fido_signature parse(binary_reader& reader);
+    static fido_signature parse(binary_reader&& reader) {
+        return fido_signature::parse(reader);
+    }
 };
 
 }  // namespace wfb

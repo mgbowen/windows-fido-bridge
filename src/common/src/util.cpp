@@ -41,23 +41,54 @@ void dump_binary_line(Output& output, const uint8_t* buffer, size_t length) {
 
 }  // namespace
 
-void dump_binary(const uint8_t* buffer, size_t length, size_t indent) {
+void dump_binary(std::stringstream& ss, const uint8_t* buffer, size_t length, size_t indent) {
     std::string indent_str(indent, ' ');
 
     // Printer a header
-    std::cerr << indent_str << "      ";
+    ss << indent_str << "      ";
     for (size_t i = 0; i < DUMP_BINARY_LINE_LENGTH; i++) {
-        std::cerr << " {:x} "_format(i);
+        ss << " {:x} "_format(i);
     }
 
-    std::cerr << "\n";
+    ss << "\n";
 
     // Print the values
     for (size_t i = 0; i < length; i += DUMP_BINARY_LINE_LENGTH) {
-        std::cerr << indent_str << "{:04x}: "_format(i);
+        ss << indent_str << "{:04x}: "_format(i);
 
-        dump_binary_line(std::cerr, buffer + i, std::min(DUMP_BINARY_LINE_LENGTH, length - i));
+        dump_binary_line(ss, buffer + i, std::min(DUMP_BINARY_LINE_LENGTH, length - i));
     }
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size) {
+    uint8_t* result = reinterpret_cast<uint8_t*>(calloc(1, size));
+    memcpy(result, buffer, size);
+    return {result, size};
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size) {
+    return calloc_from_data(reinterpret_cast<const uint8_t*>(buffer), size);
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer) {
+    return calloc_from_data(buffer.data(), buffer.size());
+}
+
+std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer) {
+    return calloc_from_data(buffer.data(), buffer.size());
+}
+
+std::optional<std::string> get_environment_variable(const std::string& variable_name) {
+    return get_environment_variable(variable_name.c_str());
+}
+
+std::optional<std::string> get_environment_variable(const char* variable_name) {
+    const char* env_var_value = std::getenv(variable_name);
+    if (env_var_value == nullptr) {
+        return std::nullopt;
+    }
+
+    return std::string(env_var_value);
 }
 
 }  // namespace wfb

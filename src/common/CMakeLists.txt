@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME} STATIC
 
     src/cbor/types/array.cpp
     src/cbor/types/integer.cpp
+    src/cbor/types/null.cpp
     src/cbor/types/value.cpp
     src/cbor/detail.cpp
     src/cbor/parse.cpp

@@ -29,7 +29,7 @@ void integer_to_be_bytes_into(std::vector<uint8_t>& buffer, T value) {
 
 template <typename T, size_t ArrayN, size_t IntegerN = sizeof(T),
           std::enable_if_t<std::is_integral_v<T> && ArrayN >= IntegerN, int> = 0>
-void integer_to_be_bytes_into(std::array<uint8_t, ArrayN>& buffer, T value) {
+void integer_to_be_bytes_into(byte_array<ArrayN>& buffer, T value) {
     integer_to_be_bytes_into<T, IntegerN>(buffer.data(), value);
 }
 
@@ -58,7 +58,7 @@ void be_bytes_to_integer_into(const std::vector<uint8_t>& buffer, T& value) {
 
 template <typename T, size_t ArrayN, size_t IntegerN = sizeof(T),
           std::enable_if_t<std::is_integral_v<T> && ArrayN >= IntegerN, int> = 0>
-void be_bytes_to_integer_into(const std::array<uint8_t, ArrayN>& buffer, T& value) {
+void be_bytes_to_integer_into(const byte_array<ArrayN>& buffer, T& value) {
     be_bytes_to_integer_into(buffer.data(), value);
 }
 
@@ -77,7 +77,7 @@ T be_bytes_to_integer(const std::vector<uint8_t>& buffer) {
 }
 
 template <typename T, size_t ArrayN, size_t IntegerN = sizeof(T), std::enable_if_t<std::is_integral_v<T>, int> = 0>
-T be_bytes_to_integer(const std::array<uint8_t, ArrayN>& buffer) {
+T be_bytes_to_integer(const byte_array<ArrayN>& buffer) {
     T value = 0;
     be_bytes_to_integer_into(buffer, value);
     return value;
@@ -118,8 +118,8 @@ public:
     size_t bytes_remaining() const { return _length - _pos; }
 
     template <size_t N>
-    std::array<uint8_t, N> read_array() {
-        std::array<uint8_t, N> buffer;
+    byte_array<N> read_array() {
+        byte_array<N> buffer;
         read_into(buffer);
         return buffer;
     }
@@ -132,7 +132,7 @@ public:
     }
 
     template <size_t N>
-    void read_into(std::array<uint8_t, N>& buffer) {
+    void read_into(byte_array<N>& buffer) {
         read_into(buffer.data(), buffer.size());
     }
 
@@ -177,7 +177,7 @@ private:
 
     template <typename T>
     T _read_be_primitive() {
-        std::array<uint8_t, sizeof(T)> buffer;
+        byte_array<sizeof(T)> buffer;
         read_into(buffer);
         return be_bytes_to_integer<T>(buffer);
     }

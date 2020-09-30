@@ -15,6 +15,9 @@ extern "C" {
 
 }
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include <array>
 #include <cstdint>
 #include <cstdlib>
@@ -27,40 +30,58 @@ namespace wfb {
 
 namespace {
 
-std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size);
-std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size);
-std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer);
-std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer);
+CUSTOM_EXCEPTION(unrecognized_but_required_option_error, "A required option is not recognized");
 
-template <size_t N>
-std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
-    return calloc_from_data(buffer.data(), buffer.size());
-}
+struct parsed_sk_option {
+    std::string name;
+    std::string value;
+    bool required{false};
+};
 
-bool is_user_verification_required_flag_set(uint8_t flags) {
-    return (flags & SSH_SK_USER_VERIFICATION_REQD) == SSH_SK_USER_VERIFICATION_REQD;
-}
+void set_up_logger();
 
-bool is_user_verification_required(uint8_t flags) {
-    const char* force_env_var = std::getenv("WINDOWS_FIDO_BRIDGE_FORCE_USER_VERIFICATION");
-    return (force_env_var != nullptr) || is_user_verification_required_flag_set(flags);
-}
+void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str = "");
+void log_sk_options(const std::vector<parsed_sk_option>& options, const std::string& indent_str);
+
+bool is_user_verification_required(const std::string_view& application, uint8_t flags);
+bool is_user_verification_required_flag_set(uint8_t flags);
+
+bool is_algorithm_supported(uint8_t alg);
+
+std::vector<parsed_sk_option> parse_options(const sk_option* const* raw_options);
+void fill_parameters_with_options(wfb::cbor_map& parameters,
+                                  const std::vector<parsed_sk_option>& options);
+
+constexpr std::string_view SK_API_OPTION_USER = "user";
 
 }  // namespace
 
 extern "C" {
 
-/* Return the version of the middleware API */
+// Return the version of the middleware API
 uint32_t sk_api_version(void) {
     return SSH_SK_VERSION_MAJOR;
 }
 
-/* Enroll a U2F key (private key generation) */
-int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
-              const char *application, uint8_t flags, const char *pin,
-              struct sk_option **options, struct sk_enroll_response **enroll_response) {
-    if (alg != SSH_SK_ECDSA) {
-        // TODO
+// Enroll a U2F key (private key generation)
+int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
+              const char* application, uint8_t flags, const char* pin,
+              sk_option** raw_options, sk_enroll_response** enroll_response) {
+    set_up_logger();
+
+    std::vector<parsed_sk_option> options = parse_options(raw_options);
+
+    spdlog::debug("Parameters from OpenSSH:");
+    spdlog::debug("    Algorithm: {}", alg);
+    spdlog::debug("    Challenge:");
+    log_multiline_binary(challenge, challenge_len, "      | ");
+    spdlog::debug("    Application: \"{}\"", application);
+    spdlog::debug("    Flags: 0b{:08b}", flags);
+    spdlog::debug("    PIN: {}", pin != nullptr ? "(present)" : "(not present)");
+    spdlog::debug("    Options:");
+    log_sk_options(options, "        ");
+
+    if (!is_algorithm_supported(alg)) {
         return SSH_SK_ERR_UNSUPPORTED;
     }
 
@@ -75,6 +96,12 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
         // on ssh-keygen's command line.
         {"user_verification_required", is_user_verification_required_flag_set(flags)},
     };
+
+    try {
+        fill_parameters_with_options(parameters, options);
+    } catch (const unrecognized_but_required_option_error&) {
+        return SSH_SK_ERR_UNSUPPORTED;
+    }
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
     auto output = parse_cbor<cbor_map>(raw_output);
@@ -110,80 +137,26 @@ int sk_enroll(uint32_t alg, const uint8_t *challenge, size_t challenge_len,
     return 0;
 }
 
-struct fido_signature {
-    std::array<uint8_t, 32> sig_r;
-    std::array<uint8_t, 32> sig_s;
-};
+// Sign a challenge
+int sk_sign(uint32_t alg, const uint8_t* data, size_t datalen,
+            const char* application, const uint8_t* key_handle, size_t key_handle_len,
+            uint8_t flags, const char* pin, sk_option** raw_options,
+            struct sk_sign_response** sign_response) {
+    set_up_logger();
 
-fido_signature parse_fido_signature(const byte_string& buffer) {
-    // To avoid building or depending on a full ASN.1 parser, we hardcode the
-    // format of the signature coming from the authenticator and bail out if we
-    // see something we don't expect; we expect an ASN.1 SEQUENCE of two 256-bit
-    // INTEGERs, see
-    // https://www.w3.org/TR/webauthn/#signature-attestation-types.
-    constexpr auto throw_invalid_signature = [] {
-        throw std::runtime_error("Invalid or unrecognized signature received from authenticator");
-    };
+    spdlog::debug("Parameters from OpenSSH:");
+    spdlog::debug("    Algorithm: {}", alg);
+    spdlog::debug("    Data:");
+    log_multiline_binary(data, datalen, "      | ");
+    spdlog::debug("    Application: \"{}\"", application);
+    spdlog::debug("    Key handle:");
+    log_multiline_binary(key_handle, key_handle_len, "      | ");
+    spdlog::debug("    Flags: 0b{:08b}", flags);
+    spdlog::debug("    PIN: {}", pin != nullptr ? "(present)" : "(not present)");
 
-    // See explanation below about the expected size of the signature's INTEGERs
-    if (buffer.size() < 70 || buffer.size() > 72) {
-        throw_invalid_signature();
-    }
+    std::vector<parsed_sk_option> options = parse_options(raw_options);
 
-    auto pos = reinterpret_cast<const uint8_t*>(buffer.data());
-
-    // SEQUENCE
-    if (*pos++ != 0x30) {
-        throw_invalid_signature();
-    }
-
-    // SEQUENCE length between 68 and 70 bytes. It can differ because an ASN.1
-    // INTEGER is left-padded with a single 0x00 byte if its MSB is set. This
-    // means each INTEGER can be either 32 or 33 bytes, plus two bytes each for
-    // their length for a range of [(32 + 2) * 2, (33 + 2) * 2], or [68, 70].
-    size_t sequence_length = *pos++;
-    if (sequence_length < 68 || sequence_length > 70) {
-        throw_invalid_signature();
-    }
-
-    auto parse_integer = [&](std::array<uint8_t, 32>& dest_buffer) {
-        // INTEGER
-        if (*pos++ != 0x02) {
-            throw_invalid_signature();
-        }
-
-        // INTEGER length
-        size_t integer_length = *pos++;
-        if (integer_length < 32 || integer_length > 33) {
-            throw_invalid_signature();
-        }
-
-        if (integer_length == 33) {
-            // Skip padding
-            if (*pos != 0x00) {
-                throw_invalid_signature();
-            }
-
-            pos++;
-        }
-
-        std::memcpy(dest_buffer.data(), pos, 32);
-        pos += 32;
-    };
-
-    fido_signature result{};
-    parse_integer(result.sig_r);
-    parse_integer(result.sig_s);
-    return result;
-}
-
-/* Sign a challenge */
-int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
-            const char *application, const uint8_t *key_handle, size_t key_handle_len,
-            uint8_t flags, const char *pin, struct sk_option **options,
-            struct sk_sign_response **sign_response) {
-    if (alg != SSH_SK_ECDSA) {
-        // TODO
+    if (!is_algorithm_supported(alg)) {
         return SSH_SK_ERR_UNSUPPORTED;
     }
 
@@ -192,8 +165,14 @@ int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
         {"message", byte_string{data, data + datalen}},
         {"application", application},
         {"key_handle", byte_string{key_handle, key_handle + key_handle_len}},
-        {"user_verification_required", is_user_verification_required(flags)},
+        {"user_verification_required", is_user_verification_required(application, flags)},
     };
+
+    try {
+        fill_parameters_with_options(parameters, options);
+    } catch (const unrecognized_but_required_option_error&) {
+        return SSH_SK_ERR_UNSUPPORTED;
+    }
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
     auto output = wfb::parse_cbor<cbor_map>(raw_output);
@@ -207,7 +186,7 @@ int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
     response->counter = auth_data.signature_count;
 
     auto raw_signature = output.at<byte_string>("signature");
-    fido_signature signature = parse_fido_signature(raw_signature);
+    auto signature = fido_signature::parse(raw_signature);
 
     std::tie(response->sig_r, response->sig_r_len) = calloc_from_data(signature.sig_r);
     std::tie(response->sig_s, response->sig_s_len) = calloc_from_data(signature.sig_s);
@@ -216,7 +195,7 @@ int sk_sign(uint32_t alg, const uint8_t *data, size_t datalen,
     return 0;
 }
 
-/* Enumerate all resident keys */
+// Enumerate all resident keys
 int sk_load_resident_keys(const char *pin, struct sk_option **options,
                           struct sk_resident_key ***rks, size_t *nrks) {
     return SSH_SK_ERR_UNSUPPORTED;
@@ -226,22 +205,108 @@ int sk_load_resident_keys(const char *pin, struct sk_option **options,
 
 namespace {
 
-std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size) {
-    uint8_t* result = reinterpret_cast<uint8_t*>(calloc(1, size));
-    memcpy(result, buffer, size);
-    return {result, size};
+void set_up_logger() {
+    auto logger = spdlog::stderr_color_mt("wfb-middleware");
+    logger->set_level(
+        get_environment_variable("WINDOWS_FIDO_BRIDGE_DEBUG")
+            ? spdlog::level::debug
+            : spdlog::level::critical
+    );
+    spdlog::set_default_logger(logger);
 }
 
-std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size) {
-    return calloc_from_data(reinterpret_cast<const uint8_t*>(buffer), size);
+void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
+    std::stringstream ss;
+    wfb::dump_binary(ss, buffer, length);
+
+    std::string token;
+    while (std::getline(ss, token, '\n')) {
+        spdlog::debug("{}{}"_format(indent_str, token));
+    }
 }
 
-std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer) {
-    return calloc_from_data(buffer.data(), buffer.size());
+void log_sk_options(const std::vector<parsed_sk_option>& options, const std::string& indent_str) {
+    if (options.empty()) {
+        spdlog::debug("{}(No options provided)"_format(indent_str));
+        return;
+    }
+
+    for (const parsed_sk_option& option : options) {
+        spdlog::debug(
+            "{}* \"{}\" = \"{}\" (required = {})",
+            indent_str,
+            option.name,
+            option.value,
+            option.required
+        );
+    }
 }
 
-std::tuple<uint8_t*, size_t> calloc_from_data(const std::string& buffer) {
-    return calloc_from_data(buffer.data(), buffer.size());
+bool is_algorithm_supported(uint8_t alg) {
+    // Windows' WebAuthn API does not support any of OpenSSH's supported
+    // algorithms other than ECDSA.
+    return alg == SSH_SK_ECDSA;
+}
+
+std::vector<parsed_sk_option> parse_options(const sk_option* const* raw_options) {
+    std::vector<parsed_sk_option> result;
+
+    if (raw_options != nullptr) {
+        const sk_option* const* current_ptr = raw_options;
+        while (*current_ptr != nullptr) {
+            const sk_option* current_option = *current_ptr;
+            result.emplace_back(parsed_sk_option{
+                .name = current_option->name,
+                .value = current_option->value,
+                .required = current_option->required != 0,
+            });
+
+            current_ptr++;
+        }
+    }
+
+    return result;
+}
+
+void fill_parameters_with_options(wfb::cbor_map& parameters,
+                                  const std::vector<parsed_sk_option>& options) {
+    for (const parsed_sk_option& option : options) {
+        if (option.name == SK_API_OPTION_USER) {
+            parameters["user"] = option.value;
+        } else if (option.required) {
+            // We don't recognize the option, but it's marked as required; per
+            // OpenSSH's spec, we should error out.
+            std::string msg = "Unrecognized but required option \"{}\" specified"_format(option.name);
+            spdlog::critical(msg);
+            throw unrecognized_but_required_option_error(msg);
+        }
+    }
+}
+
+bool is_user_verification_required(const std::string_view& application, uint8_t flags) {
+    constexpr const char* env_var_name = "WINDOWS_FIDO_BRIDGE_FORCE_USER_VERIFICATION";
+    if (get_environment_variable(env_var_name)) {
+        spdlog::debug(
+            "Forcing user verification because the environment variable \"{}\" is set to any value",
+            env_var_name
+        );
+        return true;
+    }
+
+    if (application == "ssh:windows-fido-bridge-verify-required") {
+        // Special marker that tells windows-fido-bridge to ask for user
+        // verification without OpenSSH knowing. We do this to avoid a useless
+        // prompt in OpenSSH that asks for a PIN which we can't use even if the
+        // user gives it to us.
+        spdlog::debug("Forcing user verification because the application name indicates to");
+        return true;
+    }
+
+    return is_user_verification_required_flag_set(flags);
+}
+
+bool is_user_verification_required_flag_set(uint8_t flags) {
+    return (flags & SSH_SK_USER_VERIFICATION_REQD) == SSH_SK_USER_VERIFICATION_REQD;
 }
 
 }  // namespace

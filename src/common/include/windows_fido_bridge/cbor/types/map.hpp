@@ -65,10 +65,22 @@ public:
     explicit operator std::map<TKey, TValue>() const { return map<TKey, TValue>(); }
 
     template <typename TKey>
-    const TCborValue& operator[](TKey&& key) const { return _map.at(key); }
+    TCborValue& operator[](TKey&& key) { return _map[key]; }
 
     template <typename TValue, typename TKey>
-    TValue at(TKey&& key) const { return static_cast<TValue>(_map.at(key)); }
+    TValue at(TKey&& key) { return static_cast<TValue>(_map.at(std::forward<TKey>(key))); }
+
+    template <typename TValue, typename TKey>
+    TValue at(TKey&& key) const { return static_cast<TValue>(_map.at(std::forward<TKey>(key))); }
+
+    template <typename TValue>
+    TValue at(TCborValue key) { return static_cast<TValue>(_map.at(key)); }
+
+    template <typename TValue>
+    TValue at(TCborValue key) const { return static_cast<TValue>(_map.at(key)); }
+
+    TCborValue& at(TCborValue key) { return _map.at(key); }
+    const TCborValue& at(TCborValue key) const { return _map.at(key); }
 
     bool operator==(const basic_cbor_map<TCborValue>& rhs) const { return _map == rhs._map; }
     bool operator<(const basic_cbor_map<TCborValue>& rhs) const { return _map < rhs._map; }

@@ -3,6 +3,7 @@
 #include <windows_fido_bridge/cbor/types/array.hpp>
 #include <windows_fido_bridge/cbor/types/integer.hpp>
 #include <windows_fido_bridge/cbor/types/map.hpp>
+#include <windows_fido_bridge/cbor/types/null.hpp>
 #include <windows_fido_bridge/cbor/types/string.hpp>
 
 #include <windows_fido_bridge/util.hpp>
@@ -59,8 +60,11 @@ public:
         cbor_byte_string,
         cbor_text_string,
         cbor_array,
-        cbor_map
+        cbor_map,
+        cbor_null
     >;
+
+    cbor_value() : _storage(cbor_null{}) {}
 
     template <typename T, std::enable_if_t<is_convertible_to_variant_alternative_type<T, storage_type>, int> = 0>
     cbor_value(T&& value) : _storage(std::forward<T>(value)) {}
@@ -83,7 +87,7 @@ public:
     bool operator==(const cbor_value& rhs) const;
     bool operator<(const cbor_value& rhs) const;
 
-//private:
+private:
     storage_type _storage;
 };
 

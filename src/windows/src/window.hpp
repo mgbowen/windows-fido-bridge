@@ -14,15 +14,12 @@ public:
     HWND hwnd() const;
 
     void show_window();
-    void run_message_loop();
-    void wait_handle(HANDLE handle);
+    void run_message_loop(std::optional<HANDLE> wait_handle = std::nullopt);
 
 private:
     HINSTANCE _h_instance;
     ATOM _window_class;
     HWND _hwnd;
-
-    void _run_message_loop(std::optional<HANDLE> wait_handle);
 };
 
 }  // namespace wfb

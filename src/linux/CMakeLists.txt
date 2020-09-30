@@ -27,7 +27,7 @@ target_compile_definitions(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-    common fmt
+    common fmt spdlog
 
     # GCC 8 std::filesystem support
     stdc++fs

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <windows_fido_bridge/cbor/detail.hpp>
-#include <windows_fido_bridge/cbor/parse.hpp>
+#include <windows_fido_bridge/cbor/parse_fwd.hpp>
 
 #include <windows_fido_bridge/binary_io.hpp>
 
@@ -16,7 +16,7 @@ namespace wfb {
 template <typename TCborValue>
 class basic_cbor_map {
 public:
-    basic_cbor_map(std::initializer_list<std::pair<cbor_value, cbor_value>> list)
+    basic_cbor_map(std::initializer_list<std::pair<TCborValue, TCborValue>> list)
         : _map(list.begin(), list.end()) {}
 
     explicit basic_cbor_map(binary_reader& reader) {

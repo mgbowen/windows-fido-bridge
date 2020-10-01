@@ -106,18 +106,36 @@ template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int
 bool operator==(T lhs, const cbor_integer& rhs) { return cbor_integer(lhs) == rhs; }
 
 template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
+bool operator==(const cbor_integer& lhs, T rhs) { return lhs == cbor_integer(rhs); }
+
+template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
 bool operator!=(T lhs, const cbor_integer& rhs) { return cbor_integer(lhs) != rhs; }
+
+template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
+bool operator!=(const cbor_integer& lhs, T rhs) { return lhs != cbor_integer(rhs); }
 
 template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
 bool operator<(T lhs, const cbor_integer& rhs) { return cbor_integer(lhs) < rhs; }
 
 template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
+bool operator<(const cbor_integer& lhs, T rhs) { return lhs < cbor_integer(rhs); }
+
+template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
 bool operator>(T lhs, const cbor_integer& rhs) { return cbor_integer(lhs) > rhs; }
+
+template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
+bool operator>(const cbor_integer& lhs, T rhs) { return lhs > cbor_integer(rhs); }
 
 template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
 bool operator<=(T lhs, const cbor_integer& rhs) { return cbor_integer(lhs) <= rhs; }
 
 template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
+bool operator<=(const cbor_integer& lhs, T rhs) { return lhs <= cbor_integer(rhs); }
+
+template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
 bool operator>=(T lhs, const cbor_integer& rhs) { return cbor_integer(lhs) >= rhs; }
+
+template <typename T, std::enable_if_t<detail::can_fit_in_cbor_integer_v<T>, int> = 0>
+bool operator>=(const cbor_integer& lhs, T rhs) { return lhs >= cbor_integer(rhs); }
 
 }  // namespace wfb

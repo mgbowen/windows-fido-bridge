@@ -20,10 +20,13 @@ class cbor_value;
 namespace detail {
 
 template <typename TChar>
-constexpr uint8_t basic_cbor_string_type_value;
+struct basic_cbor_string_type;
 
-template <> constexpr uint8_t basic_cbor_string_type_value<uint8_t> = CBOR_BYTE_STRING;
-template <> constexpr uint8_t basic_cbor_string_type_value<char> = CBOR_TEXT_STRING;
+template <typename TChar>
+inline constexpr uint8_t basic_cbor_string_type_v = basic_cbor_string_type<TChar>::value;
+
+template <> struct basic_cbor_string_type<uint8_t> { static constexpr uint8_t value = CBOR_BYTE_STRING; };
+template <> struct basic_cbor_string_type<char> { static constexpr uint8_t value = CBOR_TEXT_STRING; };
 
 }  // namespace detail
 
@@ -37,7 +40,7 @@ public:
 
     explicit basic_cbor_string(binary_reader& reader) {
         auto [type, size] = read_raw_length(reader);
-        if (type != detail::basic_cbor_string_type_value<value_type>) {
+        if (type != detail::basic_cbor_string_type_v<value_type>) {
             throw std::runtime_error("Invalid type value {:02x} for basic_cbor_string"_format(type));
         }
 
@@ -49,7 +52,7 @@ public:
     basic_cbor_string(const value_type* str) : _str(str) {}
 
     void dump_cbor_into(binary_writer& writer) const {
-        write_initial_byte_into(writer, detail::basic_cbor_string_type_value<value_type>, _str.size());
+        write_initial_byte_into(writer, detail::basic_cbor_string_type_v<value_type>, _str.size());
         writer.write_string(_str);
     }
 

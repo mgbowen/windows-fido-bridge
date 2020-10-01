@@ -25,6 +25,10 @@ posix_pipe::posix_pipe_fd::posix_pipe_fd(int fd) : _fd(fd) {
 }
 
 posix_pipe::posix_pipe_fd::~posix_pipe_fd() noexcept {
+    if (_fd < 0) {
+        return;
+    }
+
     if (close(_fd) != 0) {
         // In a destructor, plus not much we can do anyways, so just
         // log the error and move on.
@@ -33,6 +37,18 @@ posix_pipe::posix_pipe_fd::~posix_pipe_fd() noexcept {
             << strerror(errno) << "\n";
         std::cerr << ss.str();
     }
+
+    _fd = -1;
+}
+
+posix_pipe::posix_pipe_fd::posix_pipe_fd(posix_pipe::posix_pipe_fd&& other) : _fd(other._fd) {
+    other._fd = -1;
+}
+
+posix_pipe::posix_pipe_fd& posix_pipe::posix_pipe_fd::operator=(posix_pipe::posix_pipe_fd&& other) {
+    _fd = other._fd;
+    other._fd = -1;
+    return *this;
 }
 
 int posix_pipe::posix_pipe_fd::fd() const noexcept { return _fd; }

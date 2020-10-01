@@ -46,12 +46,17 @@ struct cbor_value_converter {
 };
 
 // Based on https://stackoverflow.com/a/45898325
-template <class T, class VariantTypes>
-constexpr bool is_convertible_to_variant_alternative_type;
+template <typename T, typename... VariantTypes>
+struct is_convertible_to_variant_alternative_type;
 
-template <class T, class... VariantTypes>
-constexpr bool is_convertible_to_variant_alternative_type<T, std::variant<VariantTypes...>> =
-    (std::is_convertible_v<remove_cvref_t<T>, remove_cvref_t<VariantTypes>> || ...);
+template <typename T, typename... VariantTypes>
+struct is_convertible_to_variant_alternative_type<T, std::variant<VariantTypes...>> {
+    static constexpr bool value = (std::is_convertible_v<remove_cvref_t<T>, remove_cvref_t<VariantTypes>> || ...);
+};
+
+template <typename T, typename... VariantTypes>
+inline constexpr bool is_convertible_to_variant_alternative_type_v =
+    is_convertible_to_variant_alternative_type<T, VariantTypes...>::value;
 
 class cbor_value {
 public:
@@ -66,7 +71,7 @@ public:
 
     cbor_value() : _storage(cbor_null{}) {}
 
-    template <typename T, std::enable_if_t<is_convertible_to_variant_alternative_type<T, storage_type>, int> = 0>
+    template <typename T, std::enable_if_t<is_convertible_to_variant_alternative_type_v<T, storage_type>, int> = 0>
     cbor_value(T&& value) : _storage(std::forward<T>(value)) {}
 
     COPYABLE(cbor_value);

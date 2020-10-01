@@ -15,9 +15,9 @@ void throw_errno_exception(const std::string& error_message) {
 void throw_errno_exception(const char* error_message) {
     if (error_message != nullptr) {
         throw std::system_error(errno, std::generic_category(), error_message);
-    } else {
-        throw std::system_error(errno, std::generic_category());
     }
+
+    throw std::system_error(errno, std::generic_category());
 }
 
 }  // namespace wfb

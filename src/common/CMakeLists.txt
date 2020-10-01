@@ -10,7 +10,6 @@ add_library(${PROJECT_NAME} STATIC
     src/cbor/types/null.cpp
     src/cbor/types/value.cpp
     src/cbor/detail.cpp
-    src/cbor/parse.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

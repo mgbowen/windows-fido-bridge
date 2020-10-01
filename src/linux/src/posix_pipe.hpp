@@ -29,12 +29,14 @@ private:
         ~posix_pipe_fd() noexcept;
 
         NON_COPYABLE(posix_pipe_fd);
-        NON_MOVABLE(posix_pipe_fd);
+
+        posix_pipe_fd(posix_pipe_fd&& other);
+        posix_pipe_fd& operator=(posix_pipe_fd&& other);
 
         int fd() const noexcept;
 
     private:
-        int _fd;
+        int _fd{-1};
     };
 
     std::optional<posix_pipe_fd> _read, _write;

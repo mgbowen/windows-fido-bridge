@@ -63,7 +63,7 @@ installing that package instead of using `make install`:
 sudo apt install debhelper
 
 make package
-sudo apt install ./windows-fido-bridge_*_*.deb
+sudo apt install ./windows-fido-bridge_*_*.deb ./windows-fido-bridge-skapi*_*_*.deb
 ```
 
 Note that if you install the deb package, apt will place the built binaries in

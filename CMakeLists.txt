@@ -7,8 +7,8 @@ option(BUILD_TESTS "Build tests" ON)
 
 # Configurable OpenSSH security key API version
 set(SK_API_VERSION 5 CACHE STRING "OpenSSH security key API version to target")
-list(APPEND valid_sk_api_versions 5 7)
-if (NOT SK_API_VERSION IN_LIST valid_sk_api_versions)
+list(APPEND VALID_SK_API_VERSIONS 5 7)
+if (NOT SK_API_VERSION IN_LIST VALID_SK_API_VERSIONS)
     message(FATAL_ERROR "Unrecognized OpenSSH security key API version \"${SK_API_VERSION}\"")
 endif()
 
@@ -98,14 +98,10 @@ elseif (BUILD_WINDOWS_TARGET)
     add_subdirectory(src/windows)
 endif()
 
-# Only install in a deb
-install(FILES "${CMAKE_SOURCE_DIR}/package/deb/copyright"
-    DESTINATION share/doc/windows-fido-bridge
-    COMPONENT deb
-    EXCLUDE_FROM_ALL
-)
-
 set(CPACK_GENERATOR DEB)
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE OFF)
+set(CPACK_COMPONENTS_GROUPING ONE_PER_GROUP)
 
 set(CPACK_PACKAGE_VERSION_MAJOR 1)
 set(CPACK_PACKAGE_VERSION_MINOR 0)
@@ -114,18 +110,90 @@ set(CPACK_PACKAGE_VERSION_PATCH 0)
 set(CPACK_PACKAGE_CONTACT "Matthew Bowen <matthew@mgbowen.com>")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/mgbowen/windows-fido-bridge")
 
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "\
-an OpenSSH security key middleware for WSL \
-\n windows-fido-bridge is an OpenSSH security key middleware that allows you \
-\n to use a FIDO2/U2F security key (e.g. a YubiKey) to SSH into a remote server \
+#
+# real_deb_group
+#
+
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_NAME "windows-fido-bridge-skapiv${SK_API_VERSION}")
+
+set(CPACK_COMPONENT_REAL_DEB_GROUP_DESCRIPTION "\
+an OpenSSH security key middleware for WSL (for OpenSSH sk-api v${SK_API_VERSION}) \
+\nwindows-fido-bridge is an OpenSSH security key middleware that allows you \
+\nto use a FIDO2/U2F security key (e.g. a YubiKey) to SSH into a remote server \
 \n from WSL.")
 
-set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "openssh-client (>=1:8.3)")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+# Only install in a deb
+install(FILES "${CMAKE_SOURCE_DIR}/package/deb/copyright"
+    DESTINATION "share/doc/${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_NAME}"
+    COMPONENT real_deb
+    EXCLUDE_FROM_ALL
+)
 
-set(CPACK_COMPONENTS_ALL Unspecified deb)
-set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE ON)
-set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS
+    "windows-fido-bridge (= ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})"
+)
+
+if ("${SK_API_VERSION}" EQUAL 5)
+    set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS
+        "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS}, openssh-client (>= 1:8.3), openssh-client (<< 1:8.4)"
+    )
+elseif ("${SK_API_VERSION}" EQUAL 7)
+    set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS
+        "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS}, openssh-client (>= 1:8.4)"
+    )
+else()
+    message(FATAL_ERROR "Unknown SK_API_VERSION ${SK_API_VERSION} when configuring deb package")
+endif()
+
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_SHLIBDEPS ON)
+
+# Transitioning to separate packages for each OpenSSH sk-api, so we need to
+# conflict with the first public release to avoid installation problems.
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS "windows-fido-bridge (<< 1.1.0)")
+
+# Conflict with all other known sk-api versions.
+foreach (ver IN LISTS VALID_SK_API_VERSIONS)
+    if ("${ver}" EQUAL "${SK_API_VERSION}")
+        set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS
+            "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS}, windows-fido-bridge-skapiv${ver}"
+        )
+    endif()
+endforeach()
+
+set(CPACK_COMPONENT_REAL_DEB_GROUP real_deb_group)
+set(CPACK_COMPONENT_UNSPECIFIED_GROUP real_deb_group)
+set(CPACK_DEBIAN_REAL_DEB_GROUP_FILE_NAME DEB-DEFAULT)
+
+#
+# version_selection_shim_group
+#
+
+set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_NAME "windows-fido-bridge")
+
+set(CPACK_COMPONENT_VERSION_SELECTION_SHIM_GROUP_DESCRIPTION "\
+an OpenSSH security key middleware for WSL (skapi version selection shim) \
+\nwindows-fido-bridge is an OpenSSH security key middleware that allows you \
+\nto use a FIDO2/U2F security key (e.g. a YubiKey) to SSH into a remote server \
+\n from WSL.")
+
+# Only install in a deb
+install(FILES "${CMAKE_SOURCE_DIR}/package/deb/version-selection-shim-copyright"
+    DESTINATION share/doc/windows-fido-bridge
+    RENAME copyright
+    COMPONENT version_selection_shim
+    EXCLUDE_FROM_ALL
+)
+
+set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS "")
+foreach (ver IN LISTS VALID_SK_API_VERSIONS)
+    if (NOT "${CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS}" STREQUAL "")
+        set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS "${CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS} | ")
+    endif()
+
+    set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS "${CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS}windows-fido-bridge-skapiv${ver}")
+endforeach()
+
+set(CPACK_COMPONENT_VERSION_SELECTION_SHIM_GROUP version_selection_shim_group)
+set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_FILE_NAME DEB-DEFAULT)
 
 include(CPack)

@@ -28,7 +28,7 @@ wiki](https://github.com/mgbowen/windows-fido-bridge/wiki/Installing-a-distro-wi
 that details how to get a Linux distro with a version of OpenSSH that's new
 enough to work with windows-fido-bridge.
 
-### From apt repository
+### From the apt repository
 
 The recommended method of installing windows-fido-bridge is to use its apt
 repository at [apt.mgbowen.dev](https://apt.mgbowen.dev). Go to that link and
@@ -72,6 +72,17 @@ Note that if you install the deb package, apt will place the built binaries in
 `SecurityKeyProvider` option when calling `ssh` or the `SSH_SK_PROVIDER`
 environment variable.
 
+#### Compile-time options
+
+You may set the following options when you invoke `cmake`:
+
+* `BUILD_TESTS`: Whether or not to build tests. Defaults to `ON`, set to `OFF`
+  to disable.
+* `SK_API_VERSION`: The version of the OpenSSH security key API to target. The
+  following versions are required to use with their respective OpenSSH versions:
+    * `5`: OpenSSH 8.3 (default)
+    * `7`: OpenSSH 8.4
+
 ## Use
 
 First, you need to generate a key tied to your FIDO/U2F-compliant security key.
@@ -96,7 +107,66 @@ You should now be logged in to your remote server!
 
 ## Tips
 
-### Using with ssh-agent
+### Turn on debug logging
+
+If you're having problems and want more information to help you solve it, or if
+you're just curious about what's going on as windows-fido-bridge executes, you
+can turn on debug logging by setting the `WINDOWS_FIDO_BRIDGE_DEBUG` environment
+variable to any value before executing an OpenSSH executable.
+
+### Force user verification
+
+**Note that this is only possible if _both_ your client and server are running
+OpenSSH 8.4 or newer!**
+
+OpenSSH 8.4 added the ability to require user verification in order to log in to
+an SSH server via a security key. This means you can require the user to, e.g.
+provide a PIN to the security key or place their finger on a security key's
+fingerprint reader (if it has one) before being granted access to a remote
+server.
+
+When using a security key that requires user verification, OpenSSH will prompt
+the user for their PIN and pass that PIN to the security key middleware, which
+then passes it to the security key. However, presumably for security reasons,
+Microsoft's WebAuthn API does not permit a middleware to prompt for a PIN.
+Despite this, OpenSSH will _always_ prompt the user for a PIN before passing
+control to a security key middleware, and OpenSSH does not provide the ability
+to disable this prompt, which means that you are prompted for a PIN twice: once
+from OpenSSH and once from Windows.
+
+To get around this, you can force windows-fido-bridge to create a security key
+assertion with user verification even if OpenSSH is configured not to do so,
+allowing you to only be prompted for a PIN once by Windows. There are two ways
+to enable this behavior:
+
+* When creating an OpenSSH security key-backed SSH key, set the FIDO application
+  to `ssh:windows-fido-bridge-verify-required`, like so:
+  ```
+  SSH_SK_PROVIDER=libwindowsfidobridge.so \
+      ssh-keygen -t ecdsa-sk -Oapplication=ssh:windows-fido-bridge-verify-required
+  ```
+  The key will be created normally; when you use it to log in,
+  windows-fido-bridge will ask for a PIN (if that's how your security key
+  performs user verification), but OpenSSH will not.
+* Set the `WINDOWS_FIDO_BRIDGE_FORCE_USER_VERIFICATION` environment variable to
+  any value before logging in to a remote server with `ssh`. You do not need to
+  set it before generating the SSH key with `ssh-keygen -t ecdsa-sk`.
+
+Note that it is still possible to create an OpenSSH security key-backed key with
+windows-fido-bridge that requires user verification using `ssh-keygen
+-Overify-required ...`, and windows-fido-bridge will respect asking for user
+verification when logging in with keys that are configured as such.
+
+Finally, you need to enforce that the remote server checks for user verification
+before permitting a user to log in with a security key. You can do so by
+prepending the public SSH key in your `~/.ssh/authorized_keys` file with
+`verify-required`, like so:
+```
+# ~/.ssh/authorized_keys
+verify-required sk-ssh-ed25519@openssh.com AAAA[...]abcdef user@server
+```
+
+### Use with ssh-agent
 
 If you want to use a security key-backed SSH key with `ssh-agent`, you should
 make sure to either invoke `ssh-add` with the `-S` argument pointing to
@@ -116,7 +186,7 @@ You may also completely omit the explicit library specification if you place the
 `SSH_SK_PROVIDER` environment variable definition in your `.bashrc` or whatever
 your shell's equivalent file is.
 
-### Using from Windows
+### Use from Windows
 
 If you want to be able to run `ssh` from a Windows command prompt without first
 being in a WSL prompt, you can create a directory somewhere on your Windows

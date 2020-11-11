@@ -153,7 +153,7 @@ set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS "windows-fido-bridge (<< 1.1.0
 
 # Conflict with all other known sk-api versions.
 foreach (ver IN LISTS VALID_SK_API_VERSIONS)
-    if ("${ver}" EQUAL "${SK_API_VERSION}")
+    if (NOT "${ver}" EQUAL "${SK_API_VERSION}")
         set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS
             "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS}, windows-fido-bridge-skapiv${ver}"
         )

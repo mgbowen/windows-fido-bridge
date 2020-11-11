@@ -109,6 +109,7 @@ set(CPACK_PACKAGE_VERSION_PATCH 0)
 
 set(CPACK_PACKAGE_CONTACT "Matthew Bowen <matthew@mgbowen.com>")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/mgbowen/windows-fido-bridge")
+set(CPACK_DEBIAN_PACKAGE_SECTION main)
 
 #
 # real_deb_group

@@ -2,9 +2,19 @@
 
 #include "windows_error.hpp"
 
+#include <windows_fido_bridge/format.hpp>
+
+#include <spdlog/spdlog.h>
+
 #include <windows.h>
 
 namespace wfb {
+
+void win32_handle_closer::operator()(HANDLE handle) const {
+    if (!CloseHandle(handle)) {
+        spdlog::debug("Failed to close handle {}", reinterpret_cast<void*>(handle));
+    }
+}
 
 std::wstring string_to_wide_string(const std::string& str) {
     // Get the number of bytes required to hold the converted string
@@ -18,7 +28,7 @@ std::wstring string_to_wide_string(const std::string& str) {
     );
 
     if (num_wchars == 0) {
-        wfb::throw_windows_exception(
+        throw_windows_exception(
             "Failed to determine buffer size needed to convert narrow string to wide string"
         );
     }
@@ -38,7 +48,7 @@ std::wstring string_to_wide_string(const std::string& str) {
     );
 
     if (result == 0) {
-        wfb::throw_windows_exception("Failed to convert narrow string to wide string");
+        throw_windows_exception("Failed to convert narrow string to wide string");
     }
 
     return converted_string;
@@ -58,7 +68,7 @@ std::string wide_string_to_string(const std::wstring& wide_str) {
     );
 
     if (num_chars == 0) {
-        wfb::throw_windows_exception(
+        throw_windows_exception(
             "Failed to determine buffer size needed to convert wide string to narrow string"
         );
     }
@@ -80,6 +90,59 @@ std::string wide_string_to_string(const std::wstring& wide_str) {
     );
 
     return converted_string;
+}
+
+std::wstring get_process_image_path_from_process_id(uint32_t pid) {
+    HANDLE raw_foreground_process_handle = OpenProcess(
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        false,  // bInheritHandle
+        pid
+    );
+    if (raw_foreground_process_handle == nullptr) {
+        throw_windows_exception("Call to OpenProcess() failed");
+    }
+
+    unique_win32_handle_ptr foreground_process_handle(raw_foreground_process_handle);
+
+    DWORD foreground_process_path_size = MAX_PATH;
+    wchar_t foreground_process_path_buf[MAX_PATH] = {};
+    bool query_succeeded = QueryFullProcessImageName(
+        foreground_process_handle.get(),
+        0,  // dwFlags
+        foreground_process_path_buf,
+        &foreground_process_path_size
+    );
+    if (!query_succeeded) {
+        throw_windows_exception("Call to QueryFullProcessImageName() failed");
+    }
+
+    return std::wstring{foreground_process_path_buf, foreground_process_path_size};
+}
+
+std::wstring get_file_name_from_file_path(const std::wstring& file_path) {
+    wchar_t file_name_no_ext_buf[MAX_PATH];
+    wchar_t file_ext_buf[MAX_PATH];
+
+    errno_t err = _wsplitpath_s(
+        file_path.c_str(),
+        nullptr,  // drive
+        0,  // driveNumberOfElements
+        nullptr,  // dir
+        0,  // dirNumberOfElements
+        file_name_no_ext_buf,
+        sizeof(file_name_no_ext_buf),
+        file_ext_buf,
+        sizeof(file_ext_buf)
+    );
+    if (err != 0) {
+        throw std::runtime_error(
+            "Failed to get file name from file path \"{}\""_format(
+                wide_string_to_string(file_path)
+            )
+        );
+    }
+
+    return L"{}{}"_format(file_name_no_ext_buf, file_ext_buf);
 }
 
 }  // namespace wfb

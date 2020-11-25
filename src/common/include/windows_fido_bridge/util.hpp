@@ -69,4 +69,6 @@ std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
 std::optional<std::string> get_environment_variable(const std::string& variable_name);
 std::optional<std::string> get_environment_variable(const char* variable_name);
 
+void set_up_logger(const std::string& log_name);
+
 }  // namespace wfb

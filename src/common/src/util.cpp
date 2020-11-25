@@ -2,6 +2,9 @@
 
 #include "windows_fido_bridge/format.hpp"
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include <iostream>
 
 namespace wfb {
@@ -89,6 +92,16 @@ std::optional<std::string> get_environment_variable(const char* variable_name) {
     }
 
     return std::string(env_var_value);
+}
+
+void set_up_logger(const std::string& log_name) {
+    auto logger = spdlog::stderr_color_mt(log_name);
+    logger->set_level(
+        get_environment_variable("WINDOWS_FIDO_BRIDGE_DEBUG")
+            ? spdlog::level::debug
+            : spdlog::level::warn
+    );
+    spdlog::set_default_logger(logger);
 }
 
 }  // namespace wfb

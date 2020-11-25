@@ -16,7 +16,6 @@ extern "C" {
 }
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <array>
 #include <cstdint>
@@ -38,8 +37,6 @@ struct parsed_sk_option {
     bool required{false};
 };
 
-void set_up_logger();
-
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str = "");
 void log_sk_options(const std::vector<parsed_sk_option>& options, const std::string& indent_str);
 
@@ -53,6 +50,7 @@ void fill_parameters_with_options(wfb::cbor_map& parameters,
                                   const std::vector<parsed_sk_option>& options);
 
 constexpr std::string_view SK_API_OPTION_USER = "user";
+constexpr const char* LOG_NAME = "wfb-middleware";
 
 }  // namespace
 
@@ -67,7 +65,7 @@ uint32_t sk_api_version(void) {
 int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
               const char* application, uint8_t flags, const char* pin,
               sk_option** raw_options, sk_enroll_response** enroll_response) {
-    set_up_logger();
+    set_up_logger(LOG_NAME);
 
     std::vector<parsed_sk_option> options = parse_options(raw_options);
 
@@ -142,7 +140,7 @@ int sk_sign(uint32_t alg, const uint8_t* data, size_t datalen,
             const char* application, const uint8_t* key_handle, size_t key_handle_len,
             uint8_t flags, const char* pin, sk_option** raw_options,
             struct sk_sign_response** sign_response) {
-    set_up_logger();
+    set_up_logger(LOG_NAME);
 
     spdlog::debug("Parameters from OpenSSH:");
     spdlog::debug("    Algorithm: {}", alg);
@@ -204,16 +202,6 @@ int sk_load_resident_keys(const char *pin, struct sk_option **options,
 }  // extern "C"
 
 namespace {
-
-void set_up_logger() {
-    auto logger = spdlog::stderr_color_mt("wfb-middleware");
-    logger->set_level(
-        get_environment_variable("WINDOWS_FIDO_BRIDGE_DEBUG")
-            ? spdlog::level::debug
-            : spdlog::level::warn
-    );
-    spdlog::set_default_logger(logger);
-}
 
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
     std::stringstream ss;

@@ -9,6 +9,8 @@
 #include <windows_fido_bridge/types.hpp>
 #include <windows_fido_bridge/util.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <windows.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -24,6 +26,8 @@
 namespace wfb {
 
 namespace {
+
+constexpr const char* LOG_NAME = "wfb-winbridge";
 
 webauthn_methods webauthn = webauthn_methods::load();
 
@@ -57,6 +61,8 @@ auto make_unique_webauthn_assertion_ptr(WEBAUTHN_ASSERTION* ptr) {
 }
 
 extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow) {
+    set_up_logger(LOG_NAME);
+
     // Set stdin and stdout to binary mode to prevent issues with reading and
     // writing CBOR between us and the Linux bridge.
     int read_fd = _fileno(stdin);

@@ -46,7 +46,7 @@ void log_sk_options(const std::vector<parsed_sk_option>& options, const std::str
 bool is_user_verification_required(const std::string_view& application, uint8_t flags);
 bool is_user_verification_required_flag_set(uint8_t flags);
 
-bool is_algorithm_supported(uint8_t alg);
+bool verify_supported_crypto_algorithm(uint8_t alg);
 
 std::vector<parsed_sk_option> parse_options(const sk_option* const* raw_options);
 void fill_parameters_with_options(wfb::cbor_map& parameters,
@@ -81,7 +81,7 @@ int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
     spdlog::debug("    Options:");
     log_sk_options(options, "        ");
 
-    if (!is_algorithm_supported(alg)) {
+    if (!verify_supported_crypto_algorithm(alg)) {
         return SSH_SK_ERR_UNSUPPORTED;
     }
 
@@ -156,7 +156,7 @@ int sk_sign(uint32_t alg, const uint8_t* data, size_t datalen,
 
     std::vector<parsed_sk_option> options = parse_options(raw_options);
 
-    if (!is_algorithm_supported(alg)) {
+    if (!verify_supported_crypto_algorithm(alg)) {
         return SSH_SK_ERR_UNSUPPORTED;
     }
 
@@ -210,7 +210,7 @@ void set_up_logger() {
     logger->set_level(
         get_environment_variable("WINDOWS_FIDO_BRIDGE_DEBUG")
             ? spdlog::level::debug
-            : spdlog::level::critical
+            : spdlog::level::warn
     );
     spdlog::set_default_logger(logger);
 }
@@ -242,10 +242,30 @@ void log_sk_options(const std::vector<parsed_sk_option>& options, const std::str
     }
 }
 
-bool is_algorithm_supported(uint8_t alg) {
+bool verify_supported_crypto_algorithm(uint8_t alg) {
     // Windows' WebAuthn API does not support any of OpenSSH's supported
     // algorithms other than ECDSA.
-    return alg == SSH_SK_ECDSA;
+    if (alg == SSH_SK_ECDSA) {
+        return true;
+    }
+
+    std::string algo_name;
+    switch (alg) {
+        case SSH_SK_ED25519:
+            algo_name = "ed25519-sk";
+            break;
+        default:
+            algo_name = "(unknown, sk-api ID = 0x{:02x})"_format(alg);
+            break;
+    }
+
+    spdlog::critical(
+        "The cryptographic algorithm \"{}\" is not supported by Microsoft's WebAuthn API. Try "
+        "using \"ecdsa-sk\" instead.",
+        algo_name
+    );
+
+    return false;
 }
 
 std::vector<parsed_sk_option> parse_options(const sk_option* const* raw_options) {

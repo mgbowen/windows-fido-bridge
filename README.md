@@ -19,7 +19,11 @@ At a minimum, you must have the following in order to use this repository:
 * A remote server running OpenSSH 8.2 or newer.
   * The aforementioned API incompatibility does not affect the remote server, so
     it **does not** need OpenSSH 8.3.
-* A FIDO/U2F security key.
+* A FIDO/U2F security key that supports ECDSA.
+  * Of the cryptographic algorithms supported by OpenSSH, Microsoft's WebAuthn
+    API only supports ECDSA (and not, e.g. Ed25519). See [Microsoft's API
+    header](https://github.com/microsoft/webauthn/blob/507e696d58fe56cd6721b237cbf01ea174816524/webauthn.h#L161-L171)
+    for supported algorithms.
 
 ## Install
 
@@ -163,7 +167,7 @@ prepending the public SSH key in your `~/.ssh/authorized_keys` file with
 `verify-required`, like so:
 ```
 # ~/.ssh/authorized_keys
-verify-required sk-ssh-ed25519@openssh.com AAAA[...]abcdef user@server
+verify-required sk-ecdsa-sha2-nistp256@openssh.com AAAA[...]abcdef user@server
 ```
 
 ### Use with ssh-agent

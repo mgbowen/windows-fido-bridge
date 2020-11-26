@@ -104,4 +104,14 @@ void set_up_logger(const std::string& log_name) {
     spdlog::set_default_logger(logger);
 }
 
+void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
+    std::stringstream ss;
+    wfb::dump_binary(ss, buffer, length);
+
+    std::string token;
+    while (std::getline(ss, token, '\n')) {
+        spdlog::debug("{}{}"_format(indent_str, token));
+    }
+}
+
 }  // namespace wfb

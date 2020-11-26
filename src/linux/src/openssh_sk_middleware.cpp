@@ -37,7 +37,7 @@ struct parsed_sk_option {
     bool required{false};
 };
 
-void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str = "");
+
 void log_sk_options(const std::vector<parsed_sk_option>& options, const std::string& indent_str);
 
 bool is_user_verification_required(const std::string_view& application, uint8_t flags);
@@ -202,16 +202,6 @@ int sk_load_resident_keys(const char *pin, struct sk_option **options,
 }  // extern "C"
 
 namespace {
-
-void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
-    std::stringstream ss;
-    wfb::dump_binary(ss, buffer, length);
-
-    std::string token;
-    while (std::getline(ss, token, '\n')) {
-        spdlog::debug("{}{}"_format(indent_str, token));
-    }
-}
 
 void log_sk_options(const std::vector<parsed_sk_option>& options, const std::string& indent_str) {
     if (options.empty()) {

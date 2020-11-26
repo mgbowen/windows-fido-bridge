@@ -71,4 +71,6 @@ std::optional<std::string> get_environment_variable(const char* variable_name);
 
 void set_up_logger(const std::string& log_name);
 
+void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str = "");
+
 }  // namespace wfb

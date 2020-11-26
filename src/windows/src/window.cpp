@@ -116,9 +116,9 @@ void window::show_window() {
                 set_foreground_window_successfully = true;
             }
         } catch (const std::exception& ex) {
-            spdlog::debug("Failed to get foreground window information: {}", ex.what());
+            spdlog::debug("Failed to reparent windows-fido-bridge host window: {}", ex.what());
         } catch (...) {
-            spdlog::debug("Failed to get foreground window information (unknown exception)");
+            spdlog::debug("Failed to reparent windows-fido-bridge host window (unknown exception)");
         }
 
         if (!set_foreground_window_successfully) {

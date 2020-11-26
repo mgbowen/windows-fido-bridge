@@ -98,10 +98,11 @@ byte_vector invoke_windows_bridge(const uint8_t* buffer, size_t length) {
             std::string wslenv_value = wslenv_value_ss.str();
 
             spdlog::debug(
-                "[Windows bridge child] Setting WSLENV environment variable to \"{}\".",
+                "[Windows bridge child] Setting {} environment variable to \"{}\".",
+                wslenv_var_name,
                 wslenv_value
             );
-            setenv("WSLENV", wslenv_value.c_str(), 1);
+            setenv(wslenv_var_name.c_str(), wslenv_value.c_str(), 1);
 
             spdlog::debug("[Windows bridge child] Execing.");
             execl(windows_exe_path.c_str(), windows_exe_path.c_str(), nullptr);

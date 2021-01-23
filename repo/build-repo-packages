@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -o errexit -o nounset -o pipefail
+
+distributions=(
+    buster
+    bullseye
+)
+
+sk_api_versions=(
+    5
+    7
+)
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+repo_build_root="$repo_root/build-repo"
+
+mkdir -p "$repo_build_root"
+
+for distribution in "${distributions[@]}"; do
+    image_name="localhost/windows-fido-bridge-repo-build:$distribution"
+    docker build --build-arg DISTRIBUTION="$distribution" -t "$image_name" "$repo_root/repo/image"
+
+    distribution_output_dir="$repo_build_root/$distribution"
+    mkdir -p "$distribution_output_dir"
+
+    for sk_api_version in "${sk_api_versions[@]}"; do
+        docker run --rm -it \
+            --user "$(id -u):$(id -g)" \
+            --mount type=bind,src="$repo_root",dst=/src,readonly \
+            --mount type=bind,src="$repo_build_root/$distribution",dst=/output \
+            "$image_name" \
+                /bin/bash -c "
+                    cd /build \
+                    && cmake -DSK_API_VERSION=$sk_api_version -DBUILD_TESTS=OFF /src \
+                    && make -j \$((\$(nproc)+1)) \
+                    && make package \
+                    && cp *.deb /output
+                "
+    done
+done

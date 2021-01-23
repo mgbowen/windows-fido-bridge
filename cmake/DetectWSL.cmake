@@ -1,4 +1,3 @@
-# Detects if we're running on WSL.
 function(_detect_wsl)
     file(READ /proc/sys/kernel/osrelease OSRELEASE)
     string(TOLOWER "${OSRELEASE}" OSRELEASE)

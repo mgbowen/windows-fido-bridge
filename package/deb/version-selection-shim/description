@@ -1,0 +1,4 @@
+an OpenSSH security key middleware for WSL (skapi version selection shim)
+windows-fido-bridge is an OpenSSH security key middleware that allows you
+to use a FIDO2/U2F security key (e.g. a YubiKey) to SSH into a remote server
+from WSL.

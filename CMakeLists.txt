@@ -28,6 +28,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(DetectWSL)
+include(Util)
 
 # 3P dependencies.
 include(BuildMingwStdThreads)
@@ -117,14 +118,19 @@ set(CPACK_DEBIAN_PACKAGE_SECTION main)
 
 set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_NAME "windows-fido-bridge-skapiv${SK_API_VERSION}")
 
-set(CPACK_COMPONENT_REAL_DEB_GROUP_DESCRIPTION "\
-an OpenSSH security key middleware for WSL (for OpenSSH sk-api v${SK_API_VERSION}) \
-\nwindows-fido-bridge is an OpenSSH security key middleware that allows you \
-\nto use a FIDO2/U2F security key (e.g. a YubiKey) to SSH into a remote server \
-\n from WSL.")
+set(skapi_deb_description_configured_file_path "${CMAKE_CURRENT_BINARY_DIR}/skapi_deb_description")
+configure_file(
+    "${CMAKE_SOURCE_DIR}/package/deb/skapi/description.template"
+    "${skapi_deb_description_configured_file_path}"
+    @ONLY
+)
+read_deb_description_from_file(
+    "${skapi_deb_description_configured_file_path}"
+    CPACK_COMPONENT_REAL_DEB_GROUP_DESCRIPTION
+)
 
 # Only install in a deb
-install(FILES "${CMAKE_SOURCE_DIR}/package/deb/copyright"
+install(FILES "${CMAKE_SOURCE_DIR}/package/deb/skapi/copyright"
     DESTINATION "share/doc/${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_NAME}"
     COMPONENT real_deb
     EXCLUDE_FROM_ALL
@@ -171,14 +177,13 @@ set(CPACK_DEBIAN_REAL_DEB_GROUP_FILE_NAME DEB-DEFAULT)
 
 set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_NAME "windows-fido-bridge")
 
-set(CPACK_COMPONENT_VERSION_SELECTION_SHIM_GROUP_DESCRIPTION "\
-an OpenSSH security key middleware for WSL (skapi version selection shim) \
-\nwindows-fido-bridge is an OpenSSH security key middleware that allows you \
-\nto use a FIDO2/U2F security key (e.g. a YubiKey) to SSH into a remote server \
-\n from WSL.")
+read_deb_description_from_file(
+    "${CMAKE_SOURCE_DIR}/package/deb/version-selection-shim/description"
+    CPACK_COMPONENT_VERSION_SELECTION_SHIM_GROUP_DESCRIPTION
+)
 
 # Only install in a deb
-install(FILES "${CMAKE_SOURCE_DIR}/package/deb/version-selection-shim-copyright"
+install(FILES "${CMAKE_SOURCE_DIR}/package/deb/version-selection-shim/copyright"
     DESTINATION share/doc/windows-fido-bridge
     RENAME copyright
     COMPONENT version_selection_shim

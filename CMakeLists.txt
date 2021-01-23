@@ -154,18 +154,15 @@ endif()
 
 set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_SHLIBDEPS ON)
 
-# Transitioning to separate packages for each OpenSSH sk-api, so we need to
+# We now provide separate packages for each OpenSSH skapi, so we need to
 # conflict with the first public release to avoid installation problems.
-set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS "windows-fido-bridge (<< 1.1.0)")
-
-# Conflict with all other known sk-api versions.
-foreach (ver IN LISTS VALID_SK_API_VERSIONS)
-    if (NOT "${ver}" EQUAL "${SK_API_VERSION}")
-        set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS
-            "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS}, windows-fido-bridge-skapiv${ver}"
-        )
-    endif()
-endforeach()
+#
+# The pattern of providing, replacing, and conflicting with the virtual package
+# is described in the Debian package maintainer's guide, see:
+# https://www.debian.org/doc/debian-policy/ch-relationships.html#s-virtual.
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_PROVIDES "windows-fido-bridge-skapi")
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_REPLACES "windows-fido-bridge-skapi")
+set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_CONFLICTS "windows-fido-bridge (<< 1.1.0), windows-fido-bridge-skapi")
 
 set(CPACK_COMPONENT_REAL_DEB_GROUP real_deb_group)
 set(CPACK_COMPONENT_UNSPECIFIED_GROUP real_deb_group)
@@ -190,6 +187,7 @@ install(FILES "${CMAKE_SOURCE_DIR}/package/deb/version-selection-shim/copyright"
     EXCLUDE_FROM_ALL
 )
 
+# Depend on one of the skapi packages we support.
 set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS "")
 foreach (ver IN LISTS VALID_SK_API_VERSIONS)
     if (NOT "${CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS}" STREQUAL "")
@@ -198,6 +196,19 @@ foreach (ver IN LISTS VALID_SK_API_VERSIONS)
 
     set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS "${CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS}windows-fido-bridge-skapiv${ver}")
 endforeach()
+
+# For reasons that are unclear to me, when upgrading between OpenSSH versions
+# that change the skapi version (which subsequently requires swapping out which
+# package provides the windows-fido-bridge-skapi virtual package), apt will
+# sometimes decide the best course of action is to remove windows-fido-bridge
+# completely. However, its dependency resolver seems to do the right thing, i.e.
+# swapping the skapi package, if we explicitly depend on every package that
+# provides the windows-fido-bridge-skapi virtual package _and_ the virtual
+# package itself, in that order. Seems to run counter to the point of using
+# virtual packages at all, but oh well.
+set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS
+    "${CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_PACKAGE_DEPENDS} | windows-fido-bridge-skapi"
+)
 
 set(CPACK_COMPONENT_VERSION_SELECTION_SHIM_GROUP version_selection_shim_group)
 set(CPACK_DEBIAN_VERSION_SELECTION_SHIM_GROUP_FILE_NAME DEB-DEFAULT)

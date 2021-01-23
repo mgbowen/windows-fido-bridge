@@ -84,8 +84,8 @@ You may set the following options when you invoke `cmake`:
   to disable.
 * `SK_API_VERSION`: The version of the OpenSSH security key API to target. The
   following versions are required to use with their respective OpenSSH versions:
-    * `5`: OpenSSH 8.3 (default)
-    * `7`: OpenSSH 8.4
+    * `5`: OpenSSH 8.3
+    * `7`: OpenSSH 8.4 (default)
 
 ## Use
 

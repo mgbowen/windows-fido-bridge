@@ -6,7 +6,7 @@ option(BUILD_WINDOWS_TARGET "Build the Windows WebAuthN API bridge executable" O
 option(BUILD_TESTS "Build tests" ON)
 
 # Configurable OpenSSH security key API version
-set(SK_API_VERSION 5 CACHE STRING "OpenSSH security key API version to target")
+set(SK_API_VERSION 7 CACHE STRING "OpenSSH security key API version to target")
 list(APPEND VALID_SK_API_VERSIONS 5 7)
 if (NOT SK_API_VERSION IN_LIST VALID_SK_API_VERSIONS)
     message(FATAL_ERROR "Unrecognized OpenSSH security key API version \"${SK_API_VERSION}\"")

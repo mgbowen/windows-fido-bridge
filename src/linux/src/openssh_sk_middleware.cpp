@@ -61,6 +61,21 @@ uint32_t sk_api_version(void) {
     return SSH_SK_VERSION_MAJOR;
 }
 
+void validate_attestation_object_format(const cbor_map& attestation_object) {
+    auto raw_attestation_object_format = attestation_object.try_at("fmt");
+    spdlog::debug(
+        "Attestation object format: {}",
+        raw_attestation_object_format ? raw_attestation_object_format->dump_debug() : "(missing)"
+    );
+    if (!raw_attestation_object_format) {
+        throw std::runtime_error("Missing attestation object format");
+    }
+
+    if (*raw_attestation_object_format != "packed") {
+        throw std::runtime_error("Invalid or unknown attestation object format");
+    }
+}
+
 // Enroll a U2F key (private key generation)
 int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
               const char* application, uint8_t flags, const char* pin,
@@ -102,14 +117,77 @@ int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
     }
 
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
-    auto output = parse_cbor<cbor_map>(raw_output);
 
-    auto raw_attestation_object = output.at<byte_string>("attestation_object");
-    auto attestation_object = parse_cbor<cbor_map>(raw_attestation_object);
-    auto auth_data = authenticator_data::parse({attestation_object.at<byte_vector>("authData")});
-    auto attestation_statement = attestation_object.at<cbor_map>("attStmt");
-    byte_vector signature = attestation_statement.at<cbor_byte_string>("sig");
-    byte_vector x5c = attestation_statement.at<cbor_array>("x5c")[0].get<cbor_byte_string>();
+    spdlog::debug("Parsing CBOR response received from Windows bridge");
+    auto output = parse_cbor<cbor_map>(raw_output);
+    std::optional<byte_string> raw_attestation_object = output.try_at<byte_string>("attestation_object");
+    if (!raw_attestation_object) {
+        spdlog::critical("Missing attestation object in Windows bridge response");
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    spdlog::debug("Parsing CBOR attestation object");
+    cbor_map attestation_object;
+
+    try {
+        attestation_object = parse_cbor<cbor_map>(*raw_attestation_object);
+        spdlog::debug("Map keys in CBOR attestation object: {}", cbor_array{attestation_object.keys()}.dump_debug());
+
+        validate_attestation_object_format(attestation_object);
+    } catch (const std::exception& ex) {
+        spdlog::critical("Failed to parse attestation object: {}", ex.what());
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    authenticator_data auth_data;
+
+    try {
+        std::optional<byte_vector> raw_auth_data = attestation_object.try_at<byte_vector>("authData");
+        if (!raw_auth_data) {
+            spdlog::critical("Missing authenticator data from attestation object");
+            return SSH_SK_ERR_GENERAL;
+        }
+
+        auth_data = authenticator_data::parse({*raw_auth_data});
+        spdlog::debug("Parsed authenticator data:");
+        log_multiline(auth_data.dump_debug(), "  | ");
+    } catch (const std::exception& ex) {
+        spdlog::critical("Failed to parse authenticator data: {}", ex.what());
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    spdlog::debug("Parsing attestation statement data in attestation object");
+    std::optional<cbor_map> raw_attestation_statement = attestation_object.try_at<cbor_map>("attStmt");
+    if (!raw_attestation_statement) {
+        spdlog::critical("Missing attestation statement in attestation object");
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    const cbor_map& attestation_statement = *raw_attestation_statement;
+
+    std::optional<cbor_byte_string> raw_signature = attestation_statement.try_at<cbor_byte_string>("sig");
+    if (!raw_signature) {
+        spdlog::critical("Missing signature in attestation statement");
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    const cbor_byte_string& signature = *raw_signature;
+
+    std::optional<cbor_array> raw_certificate_array = attestation_statement.try_at<cbor_array>("x5c");
+    if (!raw_certificate_array) {
+        spdlog::critical("Missing certificate array in attestation statement");
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    const cbor_array& certificate_array = *raw_certificate_array;
+    if (certificate_array.size() < 1) {
+        spdlog::critical("Certificate array in attestation statement contains no certificates");
+        return SSH_SK_ERR_GENERAL;
+    }
+
+    byte_vector x5c = certificate_array[0].get<cbor_byte_string>();
+
+    spdlog::debug("Attestation statement parsed successfully");
 
     // Construct the response to send back to OpenSSH. The ownership of the
     // memory we allocate here is transferred to OpenSSH; they are responsible
@@ -132,6 +210,8 @@ int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
 #endif
 
     *enroll_response = response;
+
+    spdlog::debug("Key enrollment successfully completed");
     return 0;
 }
 
@@ -175,8 +255,11 @@ int sk_sign(uint32_t alg, const uint8_t* data, size_t datalen,
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
     auto output = wfb::parse_cbor<cbor_map>(raw_output);
 
+    spdlog::debug("Parsing authenticator data");
     byte_string raw_auth_data = output.at<byte_string>("authenticator_data");
     auto auth_data = authenticator_data::parse({raw_auth_data});
+    spdlog::debug("Parsed authenticator data:");
+    log_multiline(auth_data.dump_debug(), "  | ");
 
     auto response = reinterpret_cast<sk_sign_response*>(calloc(1, sizeof(**sign_response)));
 

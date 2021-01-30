@@ -81,13 +81,13 @@ public:
     bool operator>=(const cbor_integer& rhs) const { return !(*this < rhs); }
     bool operator<=(const cbor_integer& rhs) const { return *this < rhs || *this == rhs; }
 
-    void print_debug() const {
+    std::string dump_debug() const {
         std::stringstream ss;
-        print_debug(ss);
-        std::cerr << ss.str() << "\n";
+        dump_debug(ss);
+        return ss.str();
     }
 
-    void print_debug(std::stringstream& ss) const {
+    void dump_debug(std::stringstream& ss) const {
         if (_type == CBOR_NEGATIVE_INTEGER) {
             // Use special logic to handle this so we don't run into potential
             // overflow issues for very small negative numbers

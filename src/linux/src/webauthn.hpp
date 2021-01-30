@@ -22,11 +22,7 @@ struct attested_credential_data {
         return attested_credential_data::parse(reader);
     }
 
-    void dump() const;
-};
-
-struct authenticator_data_extension {
-
+    std::string dump_debug() const;
 };
 
 struct authenticator_data {
@@ -40,14 +36,13 @@ struct authenticator_data {
 
     uint32_t signature_count;
     std::optional<attested_credential_data> attested_credential;
-    std::optional<std::vector<authenticator_data_extension>> extensions;
 
     static authenticator_data parse(binary_reader& reader);
     static authenticator_data parse(binary_reader&& reader) {
         return authenticator_data::parse(reader);
     }
 
-    void dump() const;
+    std::string dump_debug() const;
 };
 
 struct fido_signature {

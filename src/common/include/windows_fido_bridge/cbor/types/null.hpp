@@ -16,8 +16,8 @@ public:
 
     void dump_cbor_into(binary_writer& writer) const;
 
-    void print_debug() const;
-    void print_debug(std::stringstream& ss) const;
+    std::string dump_debug() const;
+    void dump_debug(std::stringstream& ss) const;
 
     bool operator==(const cbor_null& rhs) const;
     bool operator<(const cbor_null& rhs) const;

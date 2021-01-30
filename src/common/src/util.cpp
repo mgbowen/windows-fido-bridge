@@ -47,7 +47,7 @@ void dump_binary_line(Output& output, const uint8_t* buffer, size_t length) {
 void dump_binary(std::stringstream& ss, const uint8_t* buffer, size_t length, size_t indent) {
     std::string indent_str(indent, ' ');
 
-    // Printer a header
+    // Print a header
     ss << indent_str << "      ";
     for (size_t i = 0; i < DUMP_BINARY_LINE_LENGTH; i++) {
         ss << " {:x} "_format(i);
@@ -104,14 +104,22 @@ void set_up_logger(const std::string& log_name) {
     spdlog::set_default_logger(logger);
 }
 
+void log_multiline(const std::string& data, const std::string& indent_str) {
+    std::stringstream ss(data);
+    log_multiline(ss, indent_str);
+}
+
+void log_multiline(std::stringstream& data, const std::string& indent_str) {
+    std::string token;
+    while (std::getline(data, token, '\n')) {
+        spdlog::debug("{}{}"_format(indent_str, token));
+    }
+}
+
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
     std::stringstream ss;
     wfb::dump_binary(ss, buffer, length);
-
-    std::string token;
-    while (std::getline(ss, token, '\n')) {
-        spdlog::debug("{}{}"_format(indent_str, token));
-    }
+    log_multiline(ss, indent_str);
 }
 
 }  // namespace wfb

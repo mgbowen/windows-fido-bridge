@@ -8,14 +8,14 @@ void cbor_null::dump_cbor_into(binary_writer& writer) const {
     write_initial_byte_into(writer, CBOR_EVERYTHING_ELSE, CBOR_VALUE_NULL);
 }
 
-void cbor_null::print_debug() const {
+std::string cbor_null::dump_debug() const {
     std::stringstream ss;
-    print_debug(ss);
-    std::cerr << ss.str() << "\n";
+    dump_debug(ss);
+    return ss.str();
 }
 
-void cbor_null::print_debug(std::stringstream& ss) const {
-    ss << "null";
+void cbor_null::dump_debug(std::stringstream& ss) const {
+    ss << "(null)";
 }
 
 bool cbor_null::operator==(const cbor_null& rhs) const {

@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <map>
 #include <type_traits>
 #include <sstream>
@@ -16,6 +17,8 @@ namespace wfb {
 template <typename TCborValue>
 class basic_cbor_map {
 public:
+    basic_cbor_map() {}
+
     basic_cbor_map(std::initializer_list<std::pair<TCborValue, TCborValue>> list)
         : _map(list.begin(), list.end()) {}
 
@@ -82,16 +85,41 @@ public:
     TCborValue& at(TCborValue key) { return _map.at(key); }
     const TCborValue& at(TCborValue key) const { return _map.at(key); }
 
+    std::vector<TCborValue> keys() const {
+        std::vector<TCborValue> keys;
+        for (const auto& item : _map) {
+            keys.push_back(item.first);
+        }
+
+        return keys;
+    }
+
+    template <typename TValue = TCborValue, typename TKey = TCborValue>
+    std::optional<TValue> try_at(TKey&& key) {
+        auto it = _map.find(std::forward<TKey>(key));
+        return it == _map.end()
+            ? std::optional<TValue>{}
+            : std::optional<TValue>{static_cast<TValue>(it->second)};
+    }
+
+    template <typename TValue = TCborValue, typename TKey = TCborValue>
+    std::optional<TValue> try_at(TKey&& key) const {
+        auto it = _map.find(std::forward<TKey>(key));
+        return it == _map.cend()
+            ? std::optional<TValue>{}
+            : std::optional<TValue>{static_cast<TValue>(it->second)};
+    }
+
     bool operator==(const basic_cbor_map<TCborValue>& rhs) const { return _map == rhs._map; }
     bool operator<(const basic_cbor_map<TCborValue>& rhs) const { return _map < rhs._map; }
 
-    void print_debug() const {
+    std::string dump_debug() const {
         std::stringstream ss;
-        print_debug(ss);
-        std::cerr << ss.str() << "\n";
+        dump_debug(ss);
+        return ss.str();
     }
 
-    void print_debug(std::stringstream& ss) const {
+    void dump_debug(std::stringstream& ss) const {
         ss << '{';
 
         bool first = true;
@@ -100,9 +128,9 @@ public:
                 ss << ", ";
             }
 
-            pair.first.print_debug(ss);
+            pair.first.dump_debug(ss);
             ss << ": ";
-            pair.second.print_debug(ss);
+            pair.second.dump_debug(ss);
 
             first = false;
         }

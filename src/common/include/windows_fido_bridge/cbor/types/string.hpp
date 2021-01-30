@@ -50,6 +50,7 @@ public:
 
     basic_cbor_string(string_type str) : _str(std::move(str)) {}
     basic_cbor_string(const value_type* str) : _str(str) {}
+    basic_cbor_string() {}
 
     void dump_cbor_into(binary_writer& writer) const {
         write_initial_byte_into(writer, detail::basic_cbor_string_type_v<value_type>, _str.size());
@@ -72,13 +73,13 @@ public:
     bool operator==(const basic_cbor_string<TString>& rhs) const { return _str == rhs._str; }
     bool operator<(const basic_cbor_string<TString>& rhs) const { return _str < rhs._str; }
 
-    void print_debug() const {
+    std::string dump_debug() const {
         std::stringstream ss;
-        print_debug(ss);
-        std::cerr << ss.str() << "\n";
+        dump_debug(ss);
+        return ss.str();
     }
 
-    void print_debug(std::stringstream& ss) const {
+    void dump_debug(std::stringstream& ss) const {
         if constexpr (std::is_same_v<value_type, uint8_t>) {
             ss << 'b';
         }

@@ -18,6 +18,9 @@ cbor_array::cbor_array(binary_reader& reader) {
     }
 }
 
+cbor_array::cbor_array(const std::vector<cbor_value>& vec)
+    : _array(vec.cbegin(), vec.cend()) {}
+
 cbor_array::cbor_array(std::initializer_list<cbor_value> list)
     : _array(list.begin(), list.end()) {}
 
@@ -32,13 +35,13 @@ void cbor_array::dump_cbor_into(binary_writer& writer) const {
 bool cbor_array::operator==(const cbor_array& rhs) const { return _array == rhs._array; }
 bool cbor_array::operator<(const cbor_array& rhs) const { return _array < rhs._array; }
 
-void cbor_array::print_debug() const {
+std::string cbor_array::dump_debug() const {
     std::stringstream ss;
-    print_debug(ss);
-    std::cerr << ss.str();
+    dump_debug(ss);
+    return ss.str();
 }
 
-void cbor_array::print_debug(std::stringstream& ss) const {
+void cbor_array::dump_debug(std::stringstream& ss) const {
     ss << '[';
 
     bool first = true;
@@ -47,7 +50,7 @@ void cbor_array::print_debug(std::stringstream& ss) const {
             ss << ", ";
         }
 
-        value.print_debug(ss);
+        value.dump_debug(ss);
         first = false;
     }
 

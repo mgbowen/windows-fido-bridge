@@ -6,6 +6,7 @@
 #include <windows_fido_bridge/cbor/types/null.hpp>
 #include <windows_fido_bridge/cbor/types/string.hpp>
 
+#include <windows_fido_bridge/exceptions.hpp>
 #include <windows_fido_bridge/util.hpp>
 
 #include <type_traits>
@@ -43,6 +44,25 @@ struct cbor_value_converter {
     TDestination operator()(const TSource& value) const {
         throw std::runtime_error("Bad type cast");
     }
+};
+
+enum class cbor_value_type {
+    integer,
+    byte_string,
+    text_string,
+    array,
+    map,
+    null,
+    unknown,
+};
+
+struct cbor_value_type_discoverer {
+    cbor_value_type operator()(const cbor_integer& value) const { return cbor_value_type::integer; }
+    cbor_value_type operator()(const cbor_byte_string& value) const { return cbor_value_type::byte_string; }
+    cbor_value_type operator()(const cbor_text_string& value) const { return cbor_value_type::text_string; }
+    cbor_value_type operator()(const cbor_array& value) const { return cbor_value_type::array; }
+    cbor_value_type operator()(const cbor_map& value) const { return cbor_value_type::map; }
+    cbor_value_type operator()(const cbor_null& value) const { return cbor_value_type::null; }
 };
 
 // Based on https://stackoverflow.com/a/45898325
@@ -84,8 +104,12 @@ public:
         return std::visit(cbor_value_converter<T, storage_type>{}, _storage);
     }
 
-    void print_debug() const;
-    void print_debug(std::stringstream& ss) const;
+    cbor_value_type type() const {
+        return std::visit(cbor_value_type_discoverer{}, _storage);
+    }
+
+    std::string dump_debug() const;
+    void dump_debug(std::stringstream& ss) const;
 
     template <typename T> explicit operator T() const { return get<T>(); }
 

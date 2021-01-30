@@ -16,6 +16,7 @@ class cbor_value;
 class cbor_array {
 public:
     explicit cbor_array(binary_reader& reader);
+    explicit cbor_array(const std::vector<cbor_value>& vec);
     cbor_array(std::initializer_list<cbor_value> list);
 
     void dump_cbor_into(binary_writer& writer) const;
@@ -32,8 +33,10 @@ public:
         return std::vector<T>{_array.begin(), _array.end()};
     }
 
-    void print_debug() const;
-    void print_debug(std::stringstream& ss) const;
+    size_t size() const { return _array.size(); }
+
+    std::string dump_debug() const;
+    void dump_debug(std::stringstream& ss) const;
 
 private:
     std::vector<cbor_value> _array;

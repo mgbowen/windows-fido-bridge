@@ -71,7 +71,8 @@ void validate_attestation_object_format(const cbor_map& attestation_object) {
         throw std::runtime_error("Missing attestation object format");
     }
 
-    if (*raw_attestation_object_format != "packed") {
+    auto format = static_cast<std::string>(raw_attestation_object_format->get<cbor_text_string>());
+    if (format != "packed") {
         throw std::runtime_error("Invalid or unknown attestation object format");
     }
 }

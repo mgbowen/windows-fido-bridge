@@ -61,7 +61,7 @@ uint32_t sk_api_version(void) {
     return SSH_SK_VERSION_MAJOR;
 }
 
-void validate_attestation_object_format(const cbor_map& attestation_object) {
+std::string extract_attestation_object_format(const cbor_map& attestation_object) {
     auto raw_attestation_object_format = attestation_object.try_at("fmt");
     spdlog::debug(
         "Attestation object format: {}",
@@ -72,9 +72,11 @@ void validate_attestation_object_format(const cbor_map& attestation_object) {
     }
 
     auto format = static_cast<std::string>(raw_attestation_object_format->get<cbor_text_string>());
-    if (format != "packed") {
+    if (format != "packed" && format != "fido-u2f") {
         throw std::runtime_error("Invalid or unknown attestation object format");
     }
+
+    return format;
 }
 
 // Enroll a U2F key (private key generation)
@@ -129,12 +131,13 @@ int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
 
     spdlog::debug("Parsing CBOR attestation object");
     cbor_map attestation_object;
+    std::string attestation_statement_format;
 
     try {
         attestation_object = parse_cbor<cbor_map>(*raw_attestation_object);
         spdlog::debug("Map keys in CBOR attestation object: {}", cbor_array{attestation_object.keys()}.dump_debug());
 
-        validate_attestation_object_format(attestation_object);
+        attestation_statement_format = extract_attestation_object_format(attestation_object);
     } catch (const std::exception& ex) {
         spdlog::critical("Failed to parse attestation object: {}", ex.what());
         return SSH_SK_ERR_GENERAL;
@@ -175,18 +178,29 @@ int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
     const cbor_byte_string& signature = *raw_signature;
 
     std::optional<cbor_array> raw_certificate_array = attestation_statement.try_at<cbor_array>("x5c");
-    if (!raw_certificate_array) {
-        spdlog::critical("Missing certificate array in attestation statement");
-        return SSH_SK_ERR_GENERAL;
-    }
+    std::optional<byte_vector> x5c_certificate;
+    if (raw_certificate_array) {
+        spdlog::debug("Certificate array is present in attestation statement");
+        const cbor_array& certificate_array = *raw_certificate_array;
+        if (certificate_array.size() < 1) {
+            spdlog::critical(
+                "Certificate array in present in attestation statement, but it contains no certificates"
+            );
+            return SSH_SK_ERR_GENERAL;
+        }
 
-    const cbor_array& certificate_array = *raw_certificate_array;
-    if (certificate_array.size() < 1) {
-        spdlog::critical("Certificate array in attestation statement contains no certificates");
+        x5c_certificate = certificate_array[0].get<cbor_byte_string>();
+    } else if (attestation_statement_format != "packed") {
+        // "packed" statements allow omitting an x5c element, which indicates
+        // the key is performing self-attestation, but "fido-u2f" statements
+        // are required to have it.
+        spdlog::critical(
+            "Missing certificate array in attestation statement, but self-attestation is not permitted"
+        );
         return SSH_SK_ERR_GENERAL;
+    } else {
+        spdlog::debug("Certificate array is missing from attestation statement, assuming self-attestation");
     }
-
-    byte_vector x5c = certificate_array[0].get<cbor_byte_string>();
 
     spdlog::debug("Attestation statement parsed successfully");
 
@@ -202,7 +216,14 @@ int sk_enroll(uint32_t alg, const uint8_t* challenge, size_t challenge_len,
         calloc_from_data(auth_data.attested_credential->id);
 
     std::tie(response->signature, response->signature_len) = calloc_from_data(signature);
-    std::tie(response->attestation_cert, response->attestation_cert_len) = calloc_from_data(x5c);
+
+    if (x5c_certificate) {
+        std::tie(response->attestation_cert, response->attestation_cert_len) = calloc_from_data(*x5c_certificate);
+    } else {
+        // No x5c certificate was specified, so don't pass one to OpenSSH.
+        response->attestation_cert = nullptr;
+        response->attestation_cert_len = 0;
+    }
 
 #if WFB_SK_API_VERSION == 7
     // TODO: provide the raw CBOR-encoded attestation data from the security key
@@ -256,7 +277,6 @@ int sk_sign(uint32_t alg, const uint8_t* data, size_t datalen,
     byte_vector raw_output = invoke_windows_bridge(wfb::dump_cbor(parameters));
     auto output = wfb::parse_cbor<cbor_map>(raw_output);
 
-    spdlog::debug("Parsing authenticator data");
     byte_string raw_auth_data = output.at<byte_string>("authenticator_data");
     auto auth_data = authenticator_data::parse({raw_auth_data});
     spdlog::debug("Parsed authenticator data:");

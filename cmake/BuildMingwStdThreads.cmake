@@ -7,8 +7,7 @@ endif()
 if (MINGW)
     FetchContent_Declare(mingw_stdthreads
         GIT_REPOSITORY https://github.com/meganz/mingw-std-threads.git
-        GIT_TAG c01463398bd2b09c2afa0cd06c12d7b1cc8a470d  # HEAD as of 2020/10/28
-        GIT_SHALLOW ON
+        GIT_TAG f6365f900fb9b1cd6014c8d1cf13ceacf8faf3de  # HEAD as of 2021/5/2
     )
 
     if (NOT mingw_stdthreads_POPULATED)

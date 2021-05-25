@@ -94,8 +94,9 @@ std::optional<std::string> get_environment_variable(const char* variable_name) {
     return std::string(env_var_value);
 }
 
-void set_up_logger(const std::string& log_name) {
-    auto logger = spdlog::stderr_color_mt(log_name);
+void set_up_logger(std::string_view log_name) {
+    std::string log_name_str{log_name};
+    auto logger = spdlog::stderr_color_mt(log_name_str);
     logger->set_level(
         get_environment_variable("WINDOWS_FIDO_BRIDGE_DEBUG")
             ? spdlog::level::debug
@@ -116,10 +117,18 @@ void log_multiline(std::stringstream& data, const std::string& indent_str) {
     }
 }
 
+void log_multiline_binary(std::span<const uint8_t> buffer, const std::string& indent_str) {
+    log_multiline_binary(buffer.data(), buffer.size(), indent_str);
+}
+
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
     std::stringstream ss;
     wfb::dump_binary(ss, buffer, length);
     log_multiline(ss, indent_str);
+}
+
+std::string_view possibly_null_c_str_to_string_view(const char* c_str) {
+    return c_str != nullptr ? std::string_view(c_str) : std::string_view();
 }
 
 }  // namespace wfb

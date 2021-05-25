@@ -19,3 +19,11 @@ function(read_deb_description_from_file FILE_PATH OUTVAR)
 
     set(${OUTVAR} "${_desc}" PARENT_SCOPE)
 endfunction()
+
+function(negate_boolean VALUE OUTVAR)
+    if (${VALUE})
+        set(${OUTVAR} OFF PARENT_SCOPE)
+    else()
+        set(${OUTVAR} ON PARENT_SCOPE)
+    endif()
+endfunction()

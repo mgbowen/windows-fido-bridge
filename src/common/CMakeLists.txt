@@ -1,8 +1,18 @@
 project(common)
 
+# Create a shim that points sk-api.h to the version we're targeting
+set(sk_api_shim_dir_path ${CMAKE_CURRENT_BINARY_DIR}/sk-api-shim)
+file(MAKE_DIRECTORY ${sk_api_shim_dir_path})
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        "${CMAKE_CURRENT_SOURCE_DIR}/3p-include/sk-api-v${SK_API_VERSION}.h"
+        "${sk_api_shim_dir_path}/sk-api.h"
+)
+
 add_library(${PROJECT_NAME} STATIC
     src/communication.cpp
     src/exceptions.cpp
+    src/openssh.cpp
     src/util.cpp
 
     src/cbor/types/array.cpp
@@ -15,7 +25,7 @@ add_library(${PROJECT_NAME} STATIC
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${sk_api_shim_dir_path}>
     PRIVATE
         src
 )

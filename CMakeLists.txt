@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.13)
 project(windows-fido-bridge)
 
-option(BUILD_LINUX_TARGET "Build the Linux OpenSSH middleware library" ON)
-option(BUILD_WINDOWS_TARGET "Build the Windows WebAuthN API bridge executable" ON)
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH})
+include(DetectWSL)
+include(Util)
+
+negate_boolean(${WSL} NOT_WSL)
+
+option(BUILD_LINUX_MIDDLEWARE "Build the Linux OpenSSH middleware library" ${WSL})
+option(BUILD_WINDOWS_MIDDLEWARE_EXE "Build the Windows OpenSSH middleware executable" ${WSL})
+option(BUILD_WINDOWS_MIDDLEWARE_LIB "Build the Windows OpenSSH middleware library" ${NOT_WSL})
 option(BUILD_TESTS "Build tests" ON)
 
 # Configurable OpenSSH security key API version
@@ -18,22 +25,22 @@ endif()
 # The default component name (if not specified in an install() command) is
 # literally "Unspecified" sans quotes, see docs here:
 # https://cmake.org/cmake/help/v3.16/variable/CMAKE_INSTALL_DEFAULT_COMPONENT_NAME.html
-option(WINDOWS_TARGET_COMPONENT_NAME "The component to install the Windows executable into" Unspecified)
-
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH})
+option(WINDOWS_MIDDLEWARE_EXE_COMPONENT "The component to install the Window middleware executable into" Unspecified)
+option(WINDOWS_MIDDLEWARE_LIB_COMPONENT "The component to install the Window middleware library into" Unspecified)
 
 set(CMAKE_CXX_STANDARD 20)
 
 # Needed to link static libfmt.a into the Linux shared library target.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-include(DetectWSL)
-include(Util)
-
 # 3P dependencies.
-include(BuildMingwStdThreads)
 include(BuildFmt)
 include(BuildSpdlog)
+
+if (BUILD_LINUX_MIDDLEWARE)
+    include(BuildMingwStdThreads)
+endif()
+
 include(BuildGoogleTest)
 
 if (BUILD_TESTS)
@@ -44,8 +51,8 @@ include(GoogleTest)
 
 add_subdirectory(src/common)
 
-if (BUILD_LINUX_TARGET AND BUILD_WINDOWS_TARGET)
-    add_subdirectory(src/linux)
+if (BUILD_LINUX_MIDDLEWARE AND (BUILD_WINDOWS_MIDDLEWARE_EXE OR BUILD_WINDOWS_MIDDLEWARE_LIB))
+    add_subdirectory(src/linux_middleware)
 
     # The Windows target needs to be cross-compiled with MinGW, which is tricky
     # to do when we're also building a native library, so use ExternalProject to
@@ -58,12 +65,14 @@ if (BUILD_LINUX_TARGET AND BUILD_WINDOWS_TARGET)
         PREFIX ${windows_prefix}
         SOURCE_DIR ${CMAKE_SOURCE_DIR}
         CMAKE_ARGS
-            -DBUILD_LINUX_TARGET=OFF
-            -DBUILD_WINDOWS_TARGET=ON
+            -DBUILD_LINUX_MIDDLEWARE=OFF
+            "-DBUILD_WINDOWS_MIDDLEWARE_EXE=${BUILD_WINDOWS_MIDDLEWARE_EXE}"
+            "-DBUILD_WINDOWS_MIDDLEWARE_LIB=${BUILD_WINDOWS_MIDDLEWARE_LIB}"
             "-DCMAKE_BUILD_TYPE=$<CONFIG>"
             "-DCMAKE_INSTALL_PREFIX=${windows_install_dir}"
             "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_SOURCE_DIR}/cmake/toolchain-mingw64.cmake"
-            -DWINDOWS_TARGET_COMPONENT_NAME=nested-windows
+            $<$<BOOL:BUILD_WINDOWS_MIDDLEWARE_EXE>:-DWINDOWS_MIDDLEWARE_EXE_COMPONENT=nested-windows>
+            $<$<BOOL:BUILD_WINDOWS_MIDDLEWARE_LIB>:-DWINDOWS_MIDDLEWARE_LIB_COMPONENT=nested-windows>
             "-DBUILD_TESTS=${BUILD_TESTS}"
 
             # Reuse the 3P source trees we've already downloaded in the nested
@@ -93,10 +102,18 @@ if (BUILD_LINUX_TARGET AND BUILD_WINDOWS_TARGET)
         DESTINATION .
         USE_SOURCE_PERMISSIONS
     )
-elseif (BUILD_LINUX_TARGET)
-    add_subdirectory(src/linux)
-elseif (BUILD_WINDOWS_TARGET)
-    add_subdirectory(src/windows)
+else()
+    if (BUILD_WINDOWS_MIDDLEWARE_EXE OR BUILD_WINDOWS_MIDDLEWARE_LIB)
+        add_subdirectory(src/win32_middleware_common)
+    endif()
+
+    if (BUILD_WINDOWS_MIDDLEWARE_EXE)
+        add_subdirectory(src/win32_middleware_exe)
+    endif()
+
+    if (BUILD_WINDOWS_MIDDLEWARE_LIB)
+        add_subdirectory(src/win32_middleware_lib)
+    endif()
 endif()
 
 set(CPACK_GENERATOR DEB)

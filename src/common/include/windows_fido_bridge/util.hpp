@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -56,6 +57,8 @@ inline void dump_binary(std::stringstream& ss, const std::string& binary, size_t
     dump_binary(ss, reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
 }
 
+using calloc_ptr = void* (*)(size_t, size_t);
+
 std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size);
 std::tuple<uint8_t*, size_t> calloc_from_data(const char* buffer, size_t size);
 std::tuple<uint8_t*, size_t> calloc_from_data(const byte_vector& buffer);
@@ -69,10 +72,13 @@ std::tuple<uint8_t*, size_t> calloc_from_data(const byte_array<N>& buffer) {
 std::optional<std::string> get_environment_variable(const std::string& variable_name);
 std::optional<std::string> get_environment_variable(const char* variable_name);
 
-void set_up_logger(const std::string& log_name);
+void set_up_logger(std::string_view log_name);
 
 void log_multiline(const std::string& data, const std::string& indent_str = "");
 void log_multiline(std::stringstream& data, const std::string& indent_str = "");
+void log_multiline_binary(std::span<const uint8_t> buffer, const std::string& indent_str = "");
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str = "");
+
+std::string_view possibly_null_c_str_to_string_view(const char* c_str);
 
 }  // namespace wfb

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <windows_fido_bridge/binary_io.hpp>
 #include <windows_fido_bridge/types.hpp>
 
 namespace wfb {

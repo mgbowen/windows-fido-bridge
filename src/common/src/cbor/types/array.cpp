@@ -24,16 +24,9 @@ cbor_array::cbor_array(const std::vector<cbor_value>& vec)
 cbor_array::cbor_array(std::initializer_list<cbor_value> list)
     : _array(list.begin(), list.end()) {}
 
-void cbor_array::dump_cbor_into(binary_writer& writer) const {
-    write_initial_byte_into(writer, CBOR_ARRAY, _array.size());
-
-    for (auto&& value : _array) {
-        value.dump_cbor_into(writer);
-    }
+void cbor_array::push_back(cbor_value val) {
+    _array.push_back(std::move(val));
 }
-
-bool cbor_array::operator==(const cbor_array& rhs) const { return _array == rhs._array; }
-bool cbor_array::operator<(const cbor_array& rhs) const { return _array < rhs._array; }
 
 std::string cbor_array::dump_debug() const {
     std::stringstream ss;
@@ -56,5 +49,16 @@ void cbor_array::dump_debug(std::stringstream& ss) const {
 
     ss << ']';
 }
+
+void cbor_array::dump_cbor_into(binary_writer& writer) const {
+    write_initial_byte_into(writer, CBOR_ARRAY, _array.size());
+
+    for (auto&& value : _array) {
+        value.dump_cbor_into(writer);
+    }
+}
+
+bool cbor_array::operator==(const cbor_array& rhs) const { return _array == rhs._array; }
+bool cbor_array::operator<(const cbor_array& rhs) const { return _array < rhs._array; }
 
 }  // namespace wfb

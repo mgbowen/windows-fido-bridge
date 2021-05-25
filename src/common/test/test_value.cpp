@@ -15,6 +15,7 @@ TEST(CBOR, ValueBoxing) {
         const char* c_str = "hello world";
         std::string str_obj = "hello world";
         std::string_view str_view = str_obj;
+        std::span<const char> str_span = {str_obj.data(), str_obj.size()};
 
         wfb::cbor_text_string original_cbor_str{"hello world"};
         ASSERT_EQ(original_cbor_str, c_str);

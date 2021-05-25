@@ -83,18 +83,28 @@ byte_vector invoke_windows_bridge(const uint8_t* buffer, size_t length) {
                 "[Windows bridge child] Using Windows bridge at \"{}\".", windows_exe_path
             );
 
-            // For environment variables (like WINDOWS_FIDO_BRIDGE_DEBUG) to be
-            // propagated between WSL and Win32 processes, we need to set the
-            // WSLENV environment variable, see
+            // For environment variables to be propagated between WSL and Win32
+            // processes, we need to set the WSLENV environment variable, see:
             // https://devblogs.microsoft.com/commandline/share-environment-vars-between-wsl-and-windows/.
             std::string wslenv_var_name = "WSLENV";
             std::stringstream wslenv_value_ss;
             std::optional<std::string> existing_wslenv_value = get_environment_variable(wslenv_var_name);
             if (existing_wslenv_value) {
-                wslenv_value_ss << "{}:"_format(*existing_wslenv_value);
+                wslenv_value_ss << *existing_wslenv_value;
             }
 
-            wslenv_value_ss << "WINDOWS_FIDO_BRIDGE_DEBUG";
+            constexpr std::string_view env_vars[] = {
+                "WINDOWS_FIDO_BRIDGE_DEBUG",
+                "WINDOWS_FIDO_BRIDGE_FORCE_USER_VERIFICATION",
+            };
+            for (const auto& env_var : env_vars) {
+                if (wslenv_value_ss.tellp() > 0) {
+                    wslenv_value_ss << ":";
+                }
+
+                wslenv_value_ss << env_var;
+            }
+
             std::string wslenv_value = wslenv_value_ss.str();
 
             spdlog::debug(

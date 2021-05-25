@@ -6,6 +6,7 @@
 #ifndef _WINDEF_
 class HINSTANCE__;
 using HINSTANCE = HINSTANCE__*;
+using HMODULE = HINSTANCE;
 class HWND__;
 using HWND = HWND__*;
 using HANDLE = void*;

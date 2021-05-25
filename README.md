@@ -5,8 +5,9 @@ middleware](https://github.com/openssh/openssh-portable/blob/e9dc9863723e111ae05
 that allows you to use [a FIDO/U2F security
 key](https://en.wikipedia.org/wiki/Universal_2nd_Factor) (for example, [a
 YubiKey](https://www.yubico.com/products/)) to SSH into a remote server from a
-machine running Windows 10 and [Windows Subsystem for
-Linux](https://docs.microsoft.com/en-us/windows/wsl/about).
+machine running Windows 10 with [Windows Subsystem for
+Linux](https://docs.microsoft.com/en-us/windows/wsl/about) or [Cygwin](
+https://www.cygwin.com/).
 
 ## Requirements
 
@@ -24,6 +25,9 @@ At a minimum, you must have the following in order to use this repository:
     API only supports ECDSA (and not, e.g. Ed25519). See [Microsoft's API
     header](https://github.com/microsoft/webauthn/blob/507e696d58fe56cd6721b237cbf01ea174816524/webauthn.h#L161-L171)
     for supported algorithms.
+
+Cygwin is also supported on a best-effort basis; see the Cygwin section under
+Tips below.
 
 ## Install
 
@@ -207,6 +211,41 @@ default, be sure to pass the `--distribution` argument to `wsl` specifying the
 name of the appropriate distribution. Also be sure that you don't have the
 Microsoft-distributed OpenSSH client installed or that one may be used instead
 of the WSL one.
+
+### Use with Cygwin
+
+windows-fido-bridge supports Cygwin on a best-effort basis; while the primary
+execution environment is intended to be WSL, it also happens to be reasonably
+easy to compile on Cygwin as well.
+
+To compile in a Cygwin environment, ensure the latest stable versions of the
+following packages are installed:
+
+* `cmake`
+* `gcc-g++`
+* `git`
+* `make`
+
+Then, run the standard installation steps as if you were compiling for WSL
+(ignore the `apt` commands, of course). The build system will detect that you're
+building inside Cygwin and adjust the default options accordingly. The default
+build artifact will be a library named `cygwindowsfidobridge.dll`, which is the
+file you should specify when telling SSH what SK middleware to use. For example:
+
+```
+# Generate a security key-backed SSH key:
+SSH_SK_PROVIDER=cygwindowsfidobridge.dll ssh-keygen -t ecdsa-sk
+
+# Use your security key-backed SSH key:
+ssh -oSecurityKeyProvider=cygwindowsfidobridge.dll user@remote
+```
+
+All other functionality, e.g. changing the middleware's behavior via environment
+variables, works the same as it does in WSL.
+
+Note that you cannot use artifacts targeting Cygwin with a non-Cygwin OpenSSH,
+and attempting to do so will almost certainly result in a crash when attempting
+to pass data back to OpenSSH.
 
 ## References
 

@@ -7,6 +7,8 @@
 #include <windows_fido_bridge/format.hpp>
 #include <windows_fido_bridge/types.hpp>
 
+#include <sk-api.h>
+
 #include <iostream>
 
 namespace wfb {
@@ -68,6 +70,10 @@ constexpr const int64_t COSE_KEY_PARAMETER_EC2_CRV = -1;
 constexpr const int64_t COSE_KEY_PARAMETER_EC2_X_COORD = -2;
 constexpr const int64_t COSE_KEY_PARAMETER_EC2_Y_COORD = -3;
 
+// https://tools.ietf.org/html/rfc8152#section-13.2
+constexpr const int64_t COSE_KEY_PARAMETER_OKP_CRV = -1;
+constexpr const int64_t COSE_KEY_PARAMETER_OKP_X_COORD = -2;
+
 // https://tools.ietf.org/html/rfc8152#section-13
 enum class cose_key_type {
     RESERVED = 0,
@@ -79,10 +85,11 @@ enum class cose_key_type {
 std::string get_cose_key_type_description(cose_key_type kty);
 std::string get_cose_key_type_debug_description(cose_key_type kty);
 
-// Names based on Microsoft's WebAuthn API:
+// Some names based on Microsoft's WebAuthn API:
 // https://github.com/microsoft/webauthn
 enum class cose_key_algorithm {
     ECDSA_P256_WITH_SHA256 = -7,
+    EDDSA_ED25519 = -8,
     ECDSA_P384_WITH_SHA384 = -35,
     ECDSA_P521_WITH_SHA512 = -36,
     RSA_PSS_WITH_SHA256 = -37,
@@ -106,6 +113,17 @@ enum class cose_ec2_curve_type {
 std::string get_cose_ec2_curve_type_description(cose_ec2_curve_type crv);
 std::string get_cose_ec2_curve_type_debug_description(cose_ec2_curve_type crv);
 
+// https://tools.ietf.org/html/rfc8152#section-13.2
+enum class cose_okp_curve_type {
+    X25519 = 4,
+    X448 = 5,
+    Ed25519 = 6,
+    Ed448 = 7,
+};
+
+std::string get_cose_okp_curve_type_description(cose_ec2_curve_type crv);
+std::string get_cose_okp_curve_type_debug_description(cose_ec2_curve_type crv);
+
 byte_vector parse_attested_credential_public_key(binary_reader& reader);
 
 }  // namespace
@@ -122,6 +140,7 @@ void unique_webauthn_credential_attestation_ptr_deleter::operator()(
 
 unique_webauthn_credential_attestation_ptr create_windows_webauthn_credential(
     HWND parent_window_handle,
+    int ssh_algorithm,
     std::string_view ssh_application,
     std::string_view ssh_user,
     std::span<const uint8_t> ssh_challenge_bytes,
@@ -135,7 +154,6 @@ unique_webauthn_credential_attestation_ptr create_windows_webauthn_credential(
         .pwszId = relying_party_id.c_str(),
         .pwszName = L"OpenSSH via windows-fido-bridge",
     };
-
     
     // OpenSSH doesn't give us this, so just use a placeholder
     std::string user_id = "(null)";
@@ -149,11 +167,23 @@ unique_webauthn_credential_attestation_ptr create_windows_webauthn_credential(
         .pwszDisplayName = wide_ssh_user.c_str(),
     };
 
+    decltype(WEBAUTHN_COSE_CREDENTIAL_PARAMETER::lAlg) webauthn_alg = 0;
+    switch (ssh_algorithm) {
+        case SSH_SK_ECDSA:
+            webauthn_alg = WEBAUTHN_COSE_ALGORITHM_ECDSA_P256_WITH_SHA256;
+            break;
+        case SSH_SK_ED25519:
+            webauthn_alg = WEBAUTHN_COSE_ALGORITHM_EDDSA_ED25519;
+            break;
+        default:
+            throw std::runtime_error("Unrecognized OpenSSH algorithm {}"_format(webauthn_alg));
+    }
+
     std::array<WEBAUTHN_COSE_CREDENTIAL_PARAMETER, 1> cose_credential_parameters_array{
         WEBAUTHN_COSE_CREDENTIAL_PARAMETER{
             .dwVersion = WEBAUTHN_COSE_CREDENTIAL_PARAMETER_CURRENT_VERSION,
             .pwszCredentialType = WEBAUTHN_CREDENTIAL_TYPE_PUBLIC_KEY,
-            .lAlg = WEBAUTHN_COSE_ALGORITHM_ECDSA_P256_WITH_SHA256,
+            .lAlg = webauthn_alg,
         },
     };
 
@@ -359,7 +389,13 @@ std::string authenticator_data::dump_debug() const {
     return ss.str();
 }
 
-fido_signature fido_signature::parse(binary_reader& reader) {
+fido_signature fido_signature::parse_ed25519_sk_signature(binary_reader& reader) {
+    return fido_signature{
+        .sig_r = reader.read_vector(64),
+    };
+}
+
+fido_signature fido_signature::parse_ecdsa_sk_signature(binary_reader& reader) {
     // To avoid building or depending on a full ASN.1 parser, we hardcode the
     // format of the signature coming from the authenticator and bail out if we
     // see something we don't expect; we expect an ASN.1 SEQUENCE of two 256-bit
@@ -383,7 +419,7 @@ fido_signature fido_signature::parse(binary_reader& reader) {
         throw_invalid_signature();
     }
 
-    auto parse_integer = [&reader, &throw_invalid_signature](std::array<uint8_t, 32>& dest_buffer) {
+    auto parse_integer = [&reader, &throw_invalid_signature]() -> byte_vector {
         // INTEGER
         if (reader.read_uint8_t() != 0x02) {
             throw_invalid_signature();
@@ -402,12 +438,12 @@ fido_signature fido_signature::parse(binary_reader& reader) {
             }
         }
 
-        reader.read_into(dest_buffer);
+        return reader.read_vector(32);
     };
 
     fido_signature result{};
-    parse_integer(result.sig_r);
-    parse_integer(result.sig_s);
+    result.sig_r = parse_integer();
+    result.sig_s = parse_integer();
     return result;
 }
 
@@ -457,6 +493,7 @@ std::string get_cose_key_algorithm_description(cose_key_algorithm alg) {
         case cose_key_algorithm::RSASSA_PKCS1_V1_5_WITH_SHA256: return "RSASSA-PKCS1-v1_5 using SHA-256";
         case cose_key_algorithm::RSASSA_PKCS1_V1_5_WITH_SHA384: return "RSASSA-PKCS1-v1_5 using SHA-384";
         case cose_key_algorithm::RSASSA_PKCS1_V1_5_WITH_SHA512: return "RSASSA-PKCS1-v1_5 using SHA-512";
+        case cose_key_algorithm::EDDSA_ED25519: return "EdDSA";
         default: return "(Unknown)";
     }
 }
@@ -478,6 +515,23 @@ std::string get_cose_ec2_curve_type_debug_description(cose_ec2_curve_type crv) {
     return "{} (crv = {})"_format(get_cose_ec2_curve_type_description(crv), crv);
 }
 
+std::string get_cose_okp_curve_type_description(cose_okp_curve_type crv) {
+    switch (crv) {
+        case cose_okp_curve_type::X25519: return "X25519";
+        case cose_okp_curve_type::X448: return "X448";
+        case cose_okp_curve_type::Ed25519: return "Ed25519";
+        case cose_okp_curve_type::Ed448: return "Ed448";
+        default: return "(Unknown)";
+    }
+}
+
+std::string get_cose_okp_curve_type_debug_description(cose_okp_curve_type crv) {
+    return "{} (crv = {})"_format(get_cose_okp_curve_type_description(crv), crv);
+}
+
+byte_vector parse_attested_credential_ec2_public_key(const cbor_map& public_key_map);
+byte_vector parse_attested_credential_okp_public_key(const cbor_map& public_key_map);
+
 byte_vector parse_attested_credential_public_key(binary_reader& reader) {
     spdlog::debug("Parsing public key CBOR map in attested credential data");
     auto public_key_map = parse_cbor<cbor_map>(reader);
@@ -490,24 +544,89 @@ byte_vector parse_attested_credential_public_key(binary_reader& reader) {
 
     auto kty = static_cast<cose_key_type>(static_cast<int64_t>(*raw_kty));
     spdlog::debug("Public key type: {}", get_cose_key_type_debug_description(kty));
-    if (kty != cose_key_type::EC2) {
-        throw std::invalid_argument(
-            "Public key type {} is not supported"_format(get_cose_key_type_debug_description(kty))
-        );
+
+    byte_vector public_key_bytes;
+    switch (kty) {
+        case cose_key_type::EC2:
+            public_key_bytes = parse_attested_credential_ec2_public_key(public_key_map);
+            break;
+        case cose_key_type::OKP:
+            public_key_bytes = parse_attested_credential_okp_public_key(public_key_map);
+            break;
+        default:
+            throw std::invalid_argument(
+                "Public key type \"{}\" is not supported"_format(get_cose_key_type_debug_description(kty))
+            );
     }
 
+    spdlog::debug("Public key parsed successfully");
+    return public_key_bytes;
+}
+
+byte_vector parse_attested_credential_okp_public_key(const cbor_map& public_key_map) {
     auto raw_alg = public_key_map.try_at<cbor_integer>(COSE_KEY_PARAMETER_ALG);
     if (!raw_alg) {
         throw std::invalid_argument("Missing key algorithm");
     }
 
-    // ECDSA P-256 with SHA256 is the only algorithm supported by both OpenSSH
+    // EdDSA (Ed25519) is the only OKP key algorithm supported by both OpenSSH
     // and Microsoft's WebAuthn API.
+    auto alg = static_cast<cose_key_algorithm>(static_cast<int64_t>(*raw_alg));
+    spdlog::debug("Public key algorithm: {}", get_cose_key_algorithm_debug_description(alg));
+    if (alg != cose_key_algorithm::EDDSA_ED25519) {
+        throw std::invalid_argument(
+            "Public key algorithm \"{}\" is not supported"_format(get_cose_key_algorithm_debug_description(alg))
+        );
+    }
+
+    auto raw_crv = public_key_map.try_at<cbor_integer>(COSE_KEY_PARAMETER_OKP_CRV);
+    if (!raw_crv) {
+        throw std::invalid_argument("Missing OKP curve type");
+    }
+
+    auto crv = static_cast<cose_okp_curve_type>(static_cast<int64_t>(*raw_crv));
+    spdlog::debug("Public key OKP curve type: {}", get_cose_okp_curve_type_debug_description(crv));
+    if (crv != cose_okp_curve_type::Ed25519) {
+        throw std::invalid_argument(
+            "OKP curve type {} is not consistent with other public key parameters"_format(
+                get_cose_okp_curve_type_debug_description(crv)
+            )
+        );
+    }
+
+    auto raw_x_coordinate = public_key_map.try_at<cbor_byte_string>(COSE_KEY_PARAMETER_OKP_X_COORD);
+    if (!raw_x_coordinate) {
+        throw std::invalid_argument("Missing OKP curve X coordinate");
+    }
+
+    spdlog::debug("Public key OKP curve X coordinate: {}", raw_x_coordinate->dump_debug());
+
+    if (raw_x_coordinate->size() != 32) {
+        throw std::invalid_argument(
+            "Ed25519 keys must be 256 bits, but X coordinate is {} bits"_format(
+                raw_x_coordinate->size() * 8
+            )
+        );
+    }
+
+    // Ed25519 keys are real simple: just return the X coordinate and you're
+    // done.
+    return raw_x_coordinate->vector();
+}
+
+byte_vector parse_attested_credential_ec2_public_key(const cbor_map& public_key_map) {
+    auto raw_alg = public_key_map.try_at<cbor_integer>(COSE_KEY_PARAMETER_ALG);
+    if (!raw_alg) {
+        throw std::invalid_argument("Missing key algorithm");
+    }
+
+    // ECDSA P-256 with SHA256 is the only EC2 key algorithm supported by both
+    // OpenSSH and Microsoft's WebAuthn API.
     auto alg = static_cast<cose_key_algorithm>(static_cast<int64_t>(*raw_alg));
     spdlog::debug("Public key algorithm: {}", get_cose_key_algorithm_debug_description(alg));
     if (alg != cose_key_algorithm::ECDSA_P256_WITH_SHA256) {
         throw std::invalid_argument(
-            "Public key algorithm {} is not supported"_format(get_cose_key_algorithm_debug_description(alg))
+            "Public key algorithm \"{}\" is not supported"_format(get_cose_key_algorithm_debug_description(alg))
         );
     }
 
@@ -569,10 +688,7 @@ byte_vector parse_attested_credential_public_key(binary_reader& reader) {
     public_key_writer.write_bytes(x_coordinate_bytes);
     public_key_writer.write_bytes(y_coordinate_bytes);
 
-    byte_vector public_key_bytes = public_key_writer.vector();
-
-    spdlog::debug("Public key parsed successfully");
-    return public_key_bytes;
+    return public_key_writer.vector();
 }
 
 }  // namespace

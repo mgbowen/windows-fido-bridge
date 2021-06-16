@@ -6,10 +6,12 @@
 
 #include <windows.h>
 #include <webauthn.h>
+#include "undocumented_microsoft_webauthn.hpp"
 
 #include <spdlog/spdlog.h>
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -45,6 +47,7 @@ inline auto make_unique_webauthn_assertion_ptr(WEBAUTHN_ASSERTION* ptr) {
 
 unique_webauthn_credential_attestation_ptr create_windows_webauthn_credential(
     HWND parent_window_handle,
+    int ssh_algorithm,
     std::string_view ssh_application,
     std::string_view ssh_user,
     std::span<const uint8_t> ssh_challenge_bytes,
@@ -93,12 +96,17 @@ struct authenticator_data {
 };
 
 struct fido_signature {
-    byte_array<32> sig_r;
-    byte_array<32> sig_s;
+    std::optional<byte_vector> sig_r;
+    std::optional<byte_vector> sig_s;
 
-    static fido_signature parse(binary_reader& reader);
-    static fido_signature parse(binary_reader&& reader) {
-        return fido_signature::parse(reader);
+    static fido_signature parse_ed25519_sk_signature(binary_reader& reader);
+    static fido_signature parse_ed25519_sk_signature(binary_reader&& reader) {
+        return fido_signature::parse_ed25519_sk_signature(reader);
+    }
+
+    static fido_signature parse_ecdsa_sk_signature(binary_reader& reader);
+    static fido_signature parse_ecdsa_sk_signature(binary_reader&& reader) {
+        return fido_signature::parse_ecdsa_sk_signature(reader);
     }
 };
 

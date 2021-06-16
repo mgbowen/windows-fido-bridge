@@ -121,6 +121,10 @@ void log_multiline_binary(std::span<const uint8_t> buffer, const std::string& in
     log_multiline_binary(buffer.data(), buffer.size(), indent_str);
 }
 
+void log_multiline_binary(const byte_string& buffer, const std::string& indent_str) {
+    log_multiline_binary(buffer.data(), buffer.size(), indent_str);
+}
+
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str) {
     std::stringstream ss;
     wfb::dump_binary(ss, buffer, length);

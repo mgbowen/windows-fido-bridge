@@ -57,6 +57,10 @@ inline void dump_binary(std::stringstream& ss, const std::string& binary, size_t
     dump_binary(ss, reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
 }
 
+inline void dump_binary(std::stringstream& ss, const byte_string& binary, size_t indent = 0) {
+    dump_binary(ss, reinterpret_cast<const uint8_t*>(binary.data()), binary.size(), indent);
+}
+
 using calloc_ptr = void* (*)(size_t, size_t);
 
 std::tuple<uint8_t*, size_t> calloc_from_data(const uint8_t* buffer, size_t size);
@@ -77,6 +81,7 @@ void set_up_logger(std::string_view log_name);
 void log_multiline(const std::string& data, const std::string& indent_str = "");
 void log_multiline(std::stringstream& data, const std::string& indent_str = "");
 void log_multiline_binary(std::span<const uint8_t> buffer, const std::string& indent_str = "");
+void log_multiline_binary(const byte_string& buffer, const std::string& indent_str = "");
 void log_multiline_binary(const uint8_t* buffer, size_t length, const std::string& indent_str = "");
 
 std::string_view possibly_null_c_str_to_string_view(const char* c_str);

@@ -109,10 +109,16 @@ std::tuple<int, unique_sk_sign_response_ptr> sk_sign_safe_bridged(
 
     response->flags = response_parameters.at<uint8_t>("flags");
     response->counter = response_parameters.at<uint32_t>("counter");
-    std::tie(response->sig_r, response->sig_r_len) =
-        calloc_from_data(response_parameters.at<cbor_byte_string>("sig_r"));
-    std::tie(response->sig_s, response->sig_s_len) =
-        calloc_from_data(response_parameters.at<cbor_byte_string>("sig_s"));
+
+    auto raw_sig_r = response_parameters.try_at<cbor_byte_string>("sig_r");
+    if (raw_sig_r) {
+        std::tie(response->sig_r, response->sig_r_len) = calloc_from_data(*raw_sig_r);
+    }
+
+    auto raw_sig_s = response_parameters.try_at<cbor_byte_string>("sig_s");
+    if (raw_sig_s) {
+        std::tie(response->sig_s, response->sig_s_len) = calloc_from_data(*raw_sig_s);
+    }
 
     return {0, std::move(response)};
 }

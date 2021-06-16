@@ -76,6 +76,7 @@ std::tuple<int, unique_sk_enroll_response_ptr> sk_enroll_safe(
         [&](HWND window_handle) {
             return create_windows_webauthn_credential(
                 window_handle,
+                alg,
                 application,
                 ssh_user,
                 challenge,
@@ -241,10 +242,25 @@ std::tuple<int, unique_sk_sign_response_ptr> sk_sign_safe(
     response->flags = auth_data.flags;
     response->counter = auth_data.signature_count;
 
-    auto signature = fido_signature::parse(raw_signature);
+    fido_signature signature;
+    switch (alg) {
+        case SSH_SK_ED25519:
+            signature = fido_signature::parse_ed25519_sk_signature(raw_signature);
+            break;
+        case SSH_SK_ECDSA:
+            signature = fido_signature::parse_ecdsa_sk_signature(raw_signature);
+            break;
+        default:
+            throw std::runtime_error("Unrecognized OpenSSH algorithm {}"_format(alg));
+    }
 
-    std::tie(response->sig_r, response->sig_r_len) = calloc_from_data(signature.sig_r);
-    std::tie(response->sig_s, response->sig_s_len) = calloc_from_data(signature.sig_s);
+    if (signature.sig_r) {
+        std::tie(response->sig_r, response->sig_r_len) = calloc_from_data(*signature.sig_r);
+    }
+
+    if (signature.sig_s) {
+        std::tie(response->sig_s, response->sig_s_len) = calloc_from_data(*signature.sig_s);
+    }
 
     return {0, std::move(response)};
 }
@@ -254,15 +270,12 @@ namespace {
 bool verify_supported_crypto_algorithm(uint8_t alg) {
     // Windows' WebAuthn API does not support any of OpenSSH's supported
     // algorithms other than ECDSA.
-    if (alg == SSH_SK_ECDSA) {
+    if (alg == SSH_SK_ECDSA || alg == SSH_SK_ED25519) {
         return true;
     }
 
     std::string algo_name;
     switch (alg) {
-        case SSH_SK_ED25519:
-            algo_name = "ed25519-sk";
-            break;
         default:
             algo_name = "(unknown, sk-api ID = 0x{:02x})"_format(alg);
             break;

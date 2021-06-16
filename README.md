@@ -20,11 +20,7 @@ At a minimum, you must have the following in order to use this repository:
 * A remote server running OpenSSH 8.2 or newer.
   * The aforementioned API incompatibility does not affect the remote server, so
     it **does not** need OpenSSH 8.3.
-* A FIDO/U2F security key that supports ECDSA.
-  * Of the cryptographic algorithms supported by OpenSSH, Microsoft's WebAuthn
-    API only supports ECDSA (and not, e.g. Ed25519). See [Microsoft's API
-    header](https://github.com/microsoft/webauthn/blob/507e696d58fe56cd6721b237cbf01ea174816524/webauthn.h#L161-L171)
-    for supported algorithms.
+* A FIDO/U2F security key that supports Ed25519 or ECDSA.
 
 Cygwin is also supported on a best-effort basis; see the Cygwin section under
 Tips below.

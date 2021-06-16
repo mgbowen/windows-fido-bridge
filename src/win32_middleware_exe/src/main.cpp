@@ -68,6 +68,7 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
                 options
             );
         } catch (const std::exception& ex) {
+            spdlog::critical("Failed to create WebAuthn assertion: {}", ex.what());
             return_code = SSH_SK_ERR_GENERAL;
         } catch (...) {
             return_code = SSH_SK_ERR_GENERAL;
@@ -113,6 +114,7 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
                 options
             );
         } catch (const std::exception& ex) {
+            spdlog::critical("Failed to create WebAuthn assertion: {}", ex.what());
             return_code = SSH_SK_ERR_GENERAL;
         } catch (...) {
             return_code = SSH_SK_ERR_GENERAL;
@@ -123,12 +125,20 @@ extern "C" INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdL
         });
 
         if (return_code == 0) {
-            response_message["response_parameters"] = cbor_map({
+            auto response_parameters = cbor_map({
                 {"flags", response->flags},
                 {"counter", response->counter},
-                {"sig_r", std::span<const uint8_t>(response->sig_r, response->sig_r_len)},
-                {"sig_s", std::span<const uint8_t>(response->sig_s, response->sig_s_len)},
             });
+
+            if (response->sig_r != nullptr) {
+                response_parameters["sig_r"] = std::span<const uint8_t>(response->sig_r, response->sig_r_len);
+            }
+
+            if (response->sig_s != nullptr) {
+                response_parameters["sig_s"] = std::span<const uint8_t>(response->sig_s, response->sig_s_len);
+            }
+
+            response_message["response_parameters"] = std::move(response_parameters);
         }
 
         auto raw_response_message = wfb::dump_cbor(response_message);

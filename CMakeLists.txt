@@ -5,11 +5,18 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH})
 include(DetectWSL)
 include(Util)
 
-negate_boolean(${WSL} NOT_WSL)
+if (CYGWIN)
+    set(CYGWIN ON)
+    set(NOT_CYGWIN OFF)
+else()
+    set(CYGWIN OFF)
+    set(NOT_CYGWIN ON)
+endif()
+message(STATUS "Executing inside Cygwin: ${CYGWIN}")
 
-option(BUILD_LINUX_MIDDLEWARE "Build the Linux OpenSSH middleware library" ${WSL})
-option(BUILD_WINDOWS_MIDDLEWARE_EXE "Build the Windows OpenSSH middleware executable" ${WSL})
-option(BUILD_WINDOWS_MIDDLEWARE_LIB "Build the Windows OpenSSH middleware library" ${NOT_WSL})
+option(BUILD_LINUX_MIDDLEWARE "Build the Linux OpenSSH middleware library" ${NOT_CYGWIN})
+option(BUILD_WINDOWS_MIDDLEWARE_EXE "Build the Windows OpenSSH middleware executable" ${NOT_CYGWIN})
+option(BUILD_WINDOWS_MIDDLEWARE_LIB "Build the Windows OpenSSH middleware library" ${CYGWIN})
 option(BUILD_TESTS "Build tests" ON)
 
 # Configurable OpenSSH security key API version
@@ -51,68 +58,70 @@ include(GoogleTest)
 
 add_subdirectory(src/common)
 
-if (BUILD_LINUX_MIDDLEWARE AND (BUILD_WINDOWS_MIDDLEWARE_EXE OR BUILD_WINDOWS_MIDDLEWARE_LIB))
+if (BUILD_LINUX_MIDDLEWARE)
     add_subdirectory(src/linux_middleware)
+endif()
 
-    # The Windows target needs to be cross-compiled with MinGW, which is tricky
-    # to do when we're also building a native library, so use ExternalProject to
-    # create an entirely separate CMake build directory.
-    include(ExternalProject)
-    set(windows_prefix nested-windows-build)
-    set(windows_install_dir ${CMAKE_BINARY_DIR}/${windows_prefix}/install)
-    ExternalProject_Add(
-        nested_windows
-        PREFIX ${windows_prefix}
-        SOURCE_DIR ${CMAKE_SOURCE_DIR}
-        CMAKE_ARGS
-            -DBUILD_LINUX_MIDDLEWARE=OFF
-            "-DBUILD_WINDOWS_MIDDLEWARE_EXE=${BUILD_WINDOWS_MIDDLEWARE_EXE}"
-            "-DBUILD_WINDOWS_MIDDLEWARE_LIB=${BUILD_WINDOWS_MIDDLEWARE_LIB}"
-            "-DCMAKE_BUILD_TYPE=$<CONFIG>"
-            "-DCMAKE_INSTALL_PREFIX=${windows_install_dir}"
-            "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_SOURCE_DIR}/cmake/toolchain-mingw64.cmake"
-            $<$<BOOL:BUILD_WINDOWS_MIDDLEWARE_EXE>:-DWINDOWS_MIDDLEWARE_EXE_COMPONENT=nested-windows>
-            $<$<BOOL:BUILD_WINDOWS_MIDDLEWARE_LIB>:-DWINDOWS_MIDDLEWARE_LIB_COMPONENT=nested-windows>
-            "-DBUILD_TESTS=${BUILD_TESTS}"
+if (BUILD_WINDOWS_MIDDLEWARE_EXE OR BUILD_WINDOWS_MIDDLEWARE_LIB)
+    if (NOT WIN32)
+        # The Windows target needs to be cross-compiled with MinGW, which is
+        # tricky to do when we're also building a native library, so use
+        # ExternalProject to create an entirely separate CMake build directory.
+        include(ExternalProject)
+        set(windows_prefix nested-windows-build)
+        set(windows_install_dir ${CMAKE_BINARY_DIR}/${windows_prefix}/install)
+        ExternalProject_Add(
+            nested_windows
+            PREFIX ${windows_prefix}
+            SOURCE_DIR ${CMAKE_SOURCE_DIR}
+            CMAKE_ARGS
+                -DBUILD_LINUX_MIDDLEWARE=OFF
+                "-DBUILD_WINDOWS_MIDDLEWARE_EXE=${BUILD_WINDOWS_MIDDLEWARE_EXE}"
+                "-DBUILD_WINDOWS_MIDDLEWARE_LIB=${BUILD_WINDOWS_MIDDLEWARE_LIB}"
+                "-DCMAKE_BUILD_TYPE=$<CONFIG>"
+                "-DCMAKE_INSTALL_PREFIX=${windows_install_dir}"
+                "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_SOURCE_DIR}/cmake/toolchain-mingw64.cmake"
+                $<$<BOOL:BUILD_WINDOWS_MIDDLEWARE_EXE>:-DWINDOWS_MIDDLEWARE_EXE_COMPONENT=nested-windows>
+                $<$<BOOL:BUILD_WINDOWS_MIDDLEWARE_LIB>:-DWINDOWS_MIDDLEWARE_LIB_COMPONENT=nested-windows>
+                "-DBUILD_TESTS=${BUILD_TESTS}"
 
-            # Reuse the 3P source trees we've already downloaded in the nested
-            # build.
-            "-Dfmt_POPULATED=${fmt_POPULATED}"
-            "-Dfmt_SOURCE_DIR=${fmt_SOURCE_DIR}"
-            "-Dfmt_BINARY_DIR=<BINARY_DIR>/_deps/fmt-build"
-            "-Dspdlog_POPULATED=${spdlog_POPULATED}"
-            "-Dspdlog_SOURCE_DIR=${spdlog_SOURCE_DIR}"
-            "-Dspdlog_BINARY_DIR=<BINARY_DIR>/_deps/spdlog-build"
-            "-Dgoogletest_POPULATED=${googletest_POPULATED}"
-            "-Dgoogletest_SOURCE_DIR=${googletest_SOURCE_DIR}"
-            "-Dgoogletest_BINARY_DIR=<BINARY_DIR>/_deps/googletest-build"
-        BUILD_ALWAYS ON
-    )
+                # Reuse the 3P source trees we've already downloaded in the nested
+                # build.
+                "-Dfmt_POPULATED=${fmt_POPULATED}"
+                "-Dfmt_SOURCE_DIR=${fmt_SOURCE_DIR}"
+                "-Dfmt_BINARY_DIR=<BINARY_DIR>/_deps/fmt-build"
+                "-Dspdlog_POPULATED=${spdlog_POPULATED}"
+                "-Dspdlog_SOURCE_DIR=${spdlog_SOURCE_DIR}"
+                "-Dspdlog_BINARY_DIR=<BINARY_DIR>/_deps/spdlog-build"
+                "-Dgoogletest_POPULATED=${googletest_POPULATED}"
+                "-Dgoogletest_SOURCE_DIR=${googletest_SOURCE_DIR}"
+                "-Dgoogletest_BINARY_DIR=<BINARY_DIR>/_deps/googletest-build"
+            BUILD_ALWAYS ON
+        )
 
-    ExternalProject_Get_Property(nested_windows BINARY_DIR)
+        ExternalProject_Get_Property(nested_windows BINARY_DIR)
 
-    # Run the nested build's tests as a part of the main build's tests.
-    add_test(
-        NAME nested_windows_tests
-        COMMAND "${CMAKE_COMMAND}" --build "${BINARY_DIR}" --target test
-    )
+        # Run the nested build's tests as a part of the main build's tests.
+        add_test(
+            NAME nested_windows_tests
+            COMMAND "${CMAKE_COMMAND}" --build "${BINARY_DIR}" --target test
+        )
 
-    # Install the nested build's artifacts into the main build.
-    install(DIRECTORY ${windows_install_dir}/
-        DESTINATION .
-        USE_SOURCE_PERMISSIONS
-    )
-else()
-    if (BUILD_WINDOWS_MIDDLEWARE_EXE OR BUILD_WINDOWS_MIDDLEWARE_LIB)
+        # Install the nested build's artifacts into the main build.
+        install(DIRECTORY ${windows_install_dir}/
+            DESTINATION .
+            USE_SOURCE_PERMISSIONS
+        )
+    else()
         add_subdirectory(src/win32_middleware_common)
-    endif()
 
-    if (BUILD_WINDOWS_MIDDLEWARE_EXE)
-        add_subdirectory(src/win32_middleware_exe)
-    endif()
+        if (BUILD_WINDOWS_MIDDLEWARE_EXE)
+            add_subdirectory(src/win32_middleware_exe)
+        endif()
 
-    if (BUILD_WINDOWS_MIDDLEWARE_LIB)
-        add_subdirectory(src/win32_middleware_lib)
+        if (BUILD_WINDOWS_MIDDLEWARE_LIB)
+            add_subdirectory(src/win32_middleware_lib)
+        endif()
     endif()
 endif()
 

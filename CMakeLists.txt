@@ -5,6 +5,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH})
 include(DetectWSL)
 include(Util)
 
+if (WIN32)
+    set(WIN32 ON)
+else()
+    set(WIN32 OFF)
+endif()
+message(STATUS "Executing inside Win32: ${WIN32}")
+
 if (CYGWIN)
     set(CYGWIN ON)
     set(NOT_CYGWIN OFF)
@@ -63,7 +70,7 @@ if (BUILD_LINUX_MIDDLEWARE)
 endif()
 
 if (BUILD_WINDOWS_MIDDLEWARE_EXE OR BUILD_WINDOWS_MIDDLEWARE_LIB)
-    if (NOT WIN32)
+    if (NOT WIN32 AND NOT CYGWIN)
         # The Windows target needs to be cross-compiled with MinGW, which is
         # tricky to do when we're also building a native library, so use
         # ExternalProject to create an entirely separate CMake build directory.

@@ -179,7 +179,7 @@ if ("${SK_API_VERSION}" EQUAL 5)
     )
 elseif ("${SK_API_VERSION}" EQUAL 7)
     set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS
-        "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS}, openssh-client (>= 1:8.4)"
+        "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS}, openssh-client (>= 1:8.4), openssh-client (<< 1:8.9)"
     )
 elseif ("${SK_API_VERSION}" EQUAL 9)
     set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS

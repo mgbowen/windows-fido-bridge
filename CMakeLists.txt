@@ -21,7 +21,7 @@ option(BUILD_TESTS "Build tests" ON)
 
 # Configurable OpenSSH security key API version
 set(SK_API_VERSION 7 CACHE STRING "OpenSSH security key API version to target")
-list(APPEND VALID_SK_API_VERSIONS 5 7)
+list(APPEND VALID_SK_API_VERSIONS 5 7 9)
 if (NOT SK_API_VERSION IN_LIST VALID_SK_API_VERSIONS)
     message(FATAL_ERROR "Unrecognized OpenSSH security key API version \"${SK_API_VERSION}\"")
 endif()
@@ -173,6 +173,10 @@ if ("${SK_API_VERSION}" EQUAL 5)
 elseif ("${SK_API_VERSION}" EQUAL 7)
     set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS
         "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS}, openssh-client (>= 1:8.4)"
+    )
+elseif ("${SK_API_VERSION}" EQUAL 9)
+    set(CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS
+        "${CPACK_DEBIAN_REAL_DEB_GROUP_PACKAGE_DEPENDS}, openssh-client (>= 1:8.9)"
     )
 else()
     message(FATAL_ERROR "Unknown SK_API_VERSION ${SK_API_VERSION} when configuring deb package")

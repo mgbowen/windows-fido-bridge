@@ -86,6 +86,7 @@ You may set the following options when you invoke `cmake`:
   following versions are required to use with their respective OpenSSH versions:
     * `5`: OpenSSH 8.3
     * `7`: OpenSSH 8.4 (default)
+    * `9`: OpenSSH 8.9
 
 ## Use
 

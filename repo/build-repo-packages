@@ -10,6 +10,7 @@ distributions=(
 sk_api_versions=(
     5
     7
+    9
 )
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"

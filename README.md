@@ -191,6 +191,28 @@ You may also completely omit the explicit library specification if you place the
 `SSH_SK_PROVIDER` environment variable definition in your `.bashrc` or whatever
 your shell's equivalent file is.
 
+### Use with ssh client config file
+
+You can specify to use windows-fido-bridge on a per-host basis in your client
+ssh config file. That way you don't need any special commands to connect to the
+host. In your `~/.ssh/config` file, add these lines for your host:
+
+```
+Host myserver
+  HostName myserver.mydomain.org
+  IdentityFile ~/.ssh/id_ed25519_sk
+  SecurityKeyProvider=/usr/local/lib/libwindowsfidobridge.so
+```
+
+Where `id_ed25519_sk` is the key stub for your private key on the security key.
+Using this you can now just do
+
+```
+ssh myserver
+```
+
+and the connection to the server using your security key will work.
+
 ### Use from Windows
 
 If you want to be able to run `ssh` from a Windows command prompt without first

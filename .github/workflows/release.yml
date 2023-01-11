@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  release:
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        sk-api-version: [7, 9]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: install dependencies
+        run: sudo apt-get install -y cmake g++-mingw-w64-x86-64 debhelper
+
+      - name: create build directory
+        run: mkdir build
+
+      - name: configure
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DSK_API_VERSION=${{ matrix.sk-api-version }} ..
+        working-directory: build
+
+      - name: make
+        run: |
+          make -j $(nproc)
+        working-directory: build
+
+      - run: make package
+        working-directory: build
+
+      - uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true # allow appending artifacts from multiple matrix builds
+          updateOnlyUnreleased: true # but only for draft releases
+          draft: true
+          artifacts: "build/*.deb"
+          generateReleaseNotes: true

@@ -1,3 +1,11 @@
+> [!WARNING]
+> **I no longer maintain this repository**
+>
+> I have substantially less free time these days for OSS, I don't use Windows as
+> my daily driver anymore, and there seem to be much better options for using a
+> security key within WSL in 2024 and beyond
+> ([for example](https://archive.is/https://threatzer.com/posts/wsl-yubikeys/)).
+
 # windows-fido-bridge
 
 This repository implements [an OpenSSH security key
